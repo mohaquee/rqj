@@ -100,6 +100,11 @@ export const api = {
       method: "POST",
       body: { amount, method },
     }),
+  amendInvoice: (invoiceId, newAmount, reason) =>
+    request(`/api/invoices/${invoiceId}/amendments`, {
+      method: "POST",
+      body: { newAmount, reason },
+    }),
 
   // ─── Health ─────────────────────────────────────────────────────────
   health: () => request("/health", { auth: false }),

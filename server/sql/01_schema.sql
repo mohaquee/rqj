@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_payments_date_only  ON payments(date_only DESC);
 
+-- ─── INVOICE AMENDMENTS (audit trail for fee revisions, director-only) ─
+CREATE TABLE IF NOT EXISTS invoice_amendments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    invoice_id      UUID         NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    previous_amount BIGINT       NOT NULL CHECK (previous_amount >= 0),
+    new_amount      BIGINT       NOT NULL CHECK (new_amount >= 0),
+    delta           BIGINT       NOT NULL,                            -- new_amount - previous_amount (positive = up, negative = down)
+    reason          TEXT         NOT NULL,
+    amended_by      INTEGER      REFERENCES users(id) ON DELETE SET NULL,
+    amended_by_name VARCHAR(120) NOT NULL,
+    amended_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoice_amendments_invoice_id ON invoice_amendments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_amendments_amended_at ON invoice_amendments(amended_at DESC);
+
 -- ─── Updated-at trigger helper ────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN

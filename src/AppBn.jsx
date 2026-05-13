@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { api, getToken } from "./api.js";
+import { BanglaInput, BanglaTextarea } from "./bn/BanglaInput.jsx";
 
 // ─── ফার্ম তথ্য ────────────────────────────────────────────────
 const FIRM = {
@@ -47,6 +48,19 @@ const NOW = new Date();
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatCurrency = (n) => "\u09F3" + Number(n || 0).toLocaleString("bn-BD");
+
+// Helper: prevents accidental modal close when a text-drag ends outside the modal.
+// Only closes the modal if BOTH mousedown AND mouseup happened on the overlay itself.
+function overlayDismiss(onDismiss) {
+  return {
+    onMouseDown: (e) => { e.currentTarget.dataset.downOk = e.target === e.currentTarget ? "1" : "0"; },
+    onMouseUp: (e) => {
+      const ok = e.currentTarget.dataset.downOk === "1" && e.target === e.currentTarget;
+      e.currentTarget.dataset.downOk = "0";
+      if (ok) onDismiss();
+    },
+  };
+}
 const formatNumber = (n) => Number(n || 0).toLocaleString("bn-BD");
 
 // স্ট্যাটাস অনুবাদ
@@ -126,7 +140,106 @@ table{width:100%;border-collapse:separate;border-spacing:0}thead th{font-size:11
 .tooltip-wrap{position:relative}.tooltip-wrap:hover .tooltip{opacity:1;transform:translateY(0);pointer-events:auto}.tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px);background:#1d1d1f;color:#fff;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:all .2s ease;z-index:50}
 .empty-state{text-align:center;padding:48px 24px;color:var(--text-tertiary)}.empty-state p{font-size:14px;margin-top:8px}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}.fade-in{animation:fadeIn .4s ease}
+
+/* চালান লাইন আইটেম — রেসপনসিভ গ্রিড */
+.line-item-header{display:grid;grid-template-columns:2fr 1.3fr 1fr 0.3fr;gap:8px;margin-bottom:6px;font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;padding:0 4px}
+.line-item-row{display:grid;grid-template-columns:2fr 1.3fr 1fr 0.3fr;gap:8px;margin-bottom:8px;align-items:center}
+.line-item-remove{padding:8px}
+
+/* পেজ হেডার */
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.page-header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d1d1d6;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#aeaeb2}
+
+/* ═══════════════════════════════════════════════════════════════
+   মোবাইল ও ট্যাবলেট রেসপনসিভ লেয়ার
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-menu-btn{display:none;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface);align-items:center;justify-content:center;cursor:pointer;transition:all var(--transition);flex-shrink:0;padding:0}
+.mobile-menu-btn:active{background:var(--bg);transform:scale(0.96)}
+.mobile-menu-btn svg{width:18px;height:18px;color:var(--text)}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99;animation:fadeIn .2s ease;backdrop-filter:blur(2px)}
+
+@media (max-width: 1024px){
+  .sidebar{width:220px}
+  .topbar{padding:0 20px}
+  .content{padding:20px}
+  .stats-grid{gap:12px}
+}
+
+@media (max-width: 768px){
+  .app{position:relative}
+  .sidebar{position:fixed;top:0;left:0;height:100vh;width:280px;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:100;box-shadow:8px 0 32px rgba(0,0,0,.12);background:rgba(255,255,255,.98)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-backdrop.open{display:block}
+  .mobile-menu-btn{display:inline-flex}
+  .main{width:100vw}
+  .topbar{height:54px;padding:0 14px;gap:10px}
+  .topbar-title{font-size:15px;letter-spacing:-.2px}
+  .content{padding:16px 14px;-webkit-overflow-scrolling:touch}
+  .stats-grid{grid-template-columns:1fr !important;gap:10px;margin-bottom:18px}
+  .stat-card{padding:16px 18px}
+  .stat-value{font-size:22px;letter-spacing:-.5px}
+  .stat-label{font-size:10.5px;margin-bottom:6px}
+  .stat-sub{font-size:11px;margin-top:6px}
+  .grid-2{grid-template-columns:1fr;gap:14px}
+  .form-row{grid-template-columns:1fr;gap:10px}
+  .card{border-radius:12px}
+  .card-header{padding:14px 16px;flex-wrap:wrap;gap:8px}
+  .card-header h3{font-size:14px}
+  .card-body{padding:14px 16px}
+  .data-table-wrap,.card-body{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{font-size:12px;min-width:520px}
+  table th,table td{padding:10px 8px;white-space:nowrap}
+  .modal-overlay{padding:0;align-items:flex-end}
+  .modal{max-width:100% !important;width:100%;max-height:90vh;border-radius:18px 18px 0 0;animation:slideUp .3s ease}
+  .modal-header{padding:16px 18px}
+  .modal-header h2{font-size:17px}
+  .modal-body{padding:16px 18px}
+  .form-input,.form-select,.form-textarea{font-size:16px;padding:11px 14px;border-radius:10px}
+  .form-label{font-size:12.5px}
+  .btn{font-size:13px;padding:10px 14px;border-radius:10px}
+  .btn-sm{font-size:12px;padding:7px 10px}
+  .inv-meta{grid-template-columns:1fr;gap:14px;padding:16px}
+  .sidebar-brand{padding:20px 22px 16px}
+  .sidebar-brand h1{font-size:17px}
+  .sidebar-nav{padding:14px 10px}
+  .nav-item{padding:11px 14px;font-size:14px}
+  .reconcile-grid{grid-template-columns:1fr !important}
+
+  /* চালান লাইন আইটেম মোবাইলে স্ট্যাক করে */
+  .line-item-header{display:none}
+  .line-item-row{grid-template-columns:1fr;gap:10px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border-light);position:relative;margin-bottom:10px}
+  .line-item-row .line-item-remove{position:absolute;top:10px;right:10px;width:32px;height:32px;padding:0 !important}
+
+  /* inv-meta ইনলাইন ওভাররাইডসহ স্ট্যাক */
+  .inv-meta[style]{grid-template-columns:1fr !important}
+
+  /* ট্যাব স্ট্রিপ — প্রয়োজনে অনুভূমিক স্ক্রল */
+  .tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex-shrink:0}
+
+  /* পেজ হেডার মোবাইলে স্ট্যাক */
+  .page-header{flex-direction:column;align-items:stretch;margin-bottom:18px}
+  .page-header-actions{width:100%;flex-direction:column;gap:8px}
+  .page-header-actions .search-bar{width:100%}
+  .page-header-actions .btn{width:100%;justify-content:center}
+  .donut-wrap{flex-direction:column;align-items:center;gap:16px}
+  .donut-legend{width:100%}
+  .mini-chart{min-width:0}
+  body{font-size:14px}
+}
+
+@media (max-width: 380px){
+  .topbar{padding:0 10px;gap:6px}
+  .topbar-title{font-size:14px}
+  .topbar-date{display:none}
+  .content{padding:14px 10px}
+  .stat-value{font-size:20px}
+  .modal-header h2{font-size:16px}
+  .btn{padding:9px 12px;font-size:12.5px}
+}
 `;
 
 function DonutChart({ data, size = 140 }) {
@@ -158,10 +271,39 @@ function MiniBarChart({ data, height = 50 }) {
 // ═══════════════════════════════════════════════════════════════
 //  চালান পৃষ্ঠা
 // ═══════════════════════════════════════════════════════════════
-function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvoice, setSelectedInvoice, totalRevenue, totalOutstanding, totalOverdue, setPaymentModal, setPaymentAmount }) {
+function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvoice, setSelectedInvoice, totalRevenue, totalOutstanding, totalOverdue, setPaymentModal, setPaymentAmount, currentUser, refreshData, setInvoiceReceiptData }) {
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
   const [createModal, setCreateModal] = useState(false);
+  const [amendModal, setAmendModal] = useState(null);
+  const [amendForm, setAmendForm] = useState({ newAmount: "", reason: "" });
+  const [amendBusy, setAmendBusy] = useState(false);
+  const isDirector = currentUser?.role === "director";
+
+  const openAmendModal = useCallback((inv) => {
+    setAmendForm({ newAmount: String(inv.amount), reason: "" });
+    setAmendModal({ invoiceId: inv.id });
+  }, []);
+
+  const submitAmendment = useCallback(async () => {
+    if (!amendModal) return;
+    const amt = Number(amendForm.newAmount);
+    if (!Number.isFinite(amt) || amt < 0) { alert("একটি বৈধ পরিমাণ লিখুন।"); return; }
+    if (!amendForm.reason.trim() || amendForm.reason.trim().length < 3) { alert("কারণ আবশ্যক (অডিট ট্রেইল)।"); return; }
+    setAmendBusy(true);
+    try {
+      const updated = await api.amendInvoice(amendModal.invoiceId, amt, amendForm.reason.trim());
+      setInvoices(prev => prev.map(i => i.id === amendModal.invoiceId ? updated : i));
+      setAmendModal(null);
+      setAmendForm({ newAmount: "", reason: "" });
+      refreshData?.();
+    } catch (err) {
+      alert(err?.message || "চালান সংশোধন করা যায়নি।");
+    } finally {
+      setAmendBusy(false);
+    }
+  }, [amendModal, amendForm, setInvoices, refreshData]);
+
 
   if (selectedInvoice) {
     const inv = invoices.find(i => i.id === selectedInvoice);
@@ -173,8 +315,9 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
         <button className="btn btn-ghost" onClick={() => setSelectedInvoice(null)} style={{ marginBottom: 20 }}><Icon name="back" size={16} /> চালান তালিকায় ফিরে যান</button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div><h2 style={{ fontSize: 24, fontWeight: 700 }}>{inv.invoiceNo}</h2><p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>{inv.clientName}</p></div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span className={`badge-status badge-${inv.status}`}>{statusLabel(inv.status)}</span>
+            {isDirector && <button className="btn btn-secondary btn-sm" onClick={() => openAmendModal(inv)} title="অডিট ট্রেইলসহ চালানের পরিমাণ সংশোধন করুন"><Icon name="edit" size={14} /> সংশোধন</button>}
             {inv.status !== "paid" && <button className="btn btn-primary btn-sm" onClick={() => { setPaymentModal(inv.id); setPaymentAmount(""); }}>পেমেন্ট রেকর্ড করুন</button>}
           </div>
         </div>
@@ -207,12 +350,152 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
               })}</tbody>
             </table>
             <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-              <div className="inv-total-row"><span>মোট চুক্তিকৃত</span><span style={{ fontWeight: 600 }}>{formatCurrency(inv.amount)}</span></div>
+              <div className="inv-total-row">
+                <span>{inv.amendments?.length > 0 ? "বর্তমান মোট" : "মোট চুক্তিকৃত"}</span>
+                <span style={{ fontWeight: 600 }}>{formatCurrency(inv.amount)}</span>
+              </div>
+              {inv.amendments?.length > 0 && (() => {
+                const sorted = [...inv.amendments].sort((a, b) => new Date(a.amendedAt) - new Date(b.amendedAt));
+                const originalAmount = sorted[0].previousAmount;
+                const delta = inv.amount - originalAmount;
+                return (
+                  <div className="inv-total-row" style={{ fontSize: 12, color: "var(--text-tertiary)", borderTop: "1px dashed var(--border-light)" }}>
+                    <span>মূল <span style={{ textDecoration: "line-through" }}>{formatCurrency(originalAmount)}</span> · সংশোধিত {delta >= 0 ? "+" : ""}{formatCurrency(delta)}</span>
+                    <span></span>
+                  </div>
+                );
+              })()}
               <div className="inv-total-row"><span>পরিশোধিত</span><span style={{ fontWeight: 600, color: "var(--green)" }}>-{formatCurrency(inv.paid)}</span></div>
               <div className="inv-total-row grand"><span>বকেয়া</span><span>{formatCurrency(inv.outstanding)}</span></div>
             </div>
           </div>
         </div>
+
+        {inv.amendments?.length > 0 && (
+          <div className="card" style={{ marginTop: 24 }}>
+            <div className="card-header">
+              <h3>সংশোধনের ইতিহাস</h3>
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{formatNumber(inv.amendments.length)} টি সংশোধন · অডিট ট্রেইল (শুধু সংযোজনযোগ্য)</span>
+            </div>
+            <div className="card-body">
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {inv.amendments.map((a) => {
+                  const up = a.delta > 0;
+                  const dateStr = new Date(a.amendedAt).toLocaleString("bn-BD", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <div key={a.id} style={{ display: "flex", gap: 12, padding: 12, background: "var(--bg)", borderRadius: 10, borderLeft: `3px solid ${up ? "var(--orange)" : "var(--green)"}` }}>
+                      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 8, background: up ? "rgba(255,149,0,0.12)" : "rgba(30,138,58,0.12)", color: up ? "var(--orange)" : "var(--green)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>
+                        {up ? "▲" : "▼"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                            {formatCurrency(a.previousAmount)} → <span style={{ color: "var(--accent)" }}>{formatCurrency(a.newAmount)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: up ? "var(--orange)" : "var(--green)", marginLeft: 8 }}>
+                              ({up ? "+" : ""}{formatCurrency(a.delta)})
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{dateStr}</div>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 4, lineHeight: 1.45 }}>{a.reason}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>সংশোধক <strong style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{a.amendedByName}</strong></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {amendModal && (() => {
+          const aInv = invoices.find(i => i.id === amendModal.invoiceId);
+          if (!aInv) return null;
+          const currentAmount = aInv.amount;
+          const newAmt = Number(amendForm.newAmount);
+          const delta = Number.isFinite(newAmt) ? newAmt - currentAmount : 0;
+          const newOutstanding = Number.isFinite(newAmt) ? Math.max(0, newAmt - aInv.paid) : aInv.outstanding;
+          const belowPaid = Number.isFinite(newAmt) && newAmt < aInv.paid;
+          return (
+            <div className="modal-overlay" {...overlayDismiss(() => setAmendModal(null))}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div className="modal-header">
+                  <div>
+                    <h2 style={{ marginBottom: 2 }}>চালান সংশোধন</h2>
+                    <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>{aInv.invoiceNo} · {aInv.clientName}</p>
+                  </div>
+                  <button className="modal-close" onClick={() => setAmendModal(null)}><Icon name="x" size={16} /></button>
+                </div>
+                <div className="modal-body">
+                  <div style={{ background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "var(--accent)", lineHeight: 1.5 }}>
+                    <strong>অডিট ট্রেইল:</strong> প্রতিটি সংশোধন স্থায়ীভাবে কারণ, নতুন পরিমাণ, সময় ও আপনার নামসহ রেকর্ড করা হয়। অতীত সংশোধনগুলো সম্পাদনা বা মুছে ফেলা যায় না।
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <label className="form-label">বর্তমান পরিমাণ</label>
+                      <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(currentAmount)}</div>
+                    </div>
+                    <div>
+                      <label className="form-label">ইতোমধ্যে পরিশোধিত</label>
+                      <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(aInv.paid)}</div>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">নতুন পরিমাণ (টাকা) <span style={{ color: "var(--red)" }}>*</span></label>
+                    <input
+                      className="form-input"
+                      type="number"
+                      placeholder="যেমন: ৪৫০০০০"
+                      value={amendForm.newAmount}
+                      onChange={e => setAmendForm(p => ({ ...p, newAmount: e.target.value }))}
+                      style={{ fontSize: 18, fontWeight: 600, color: belowPaid ? "var(--red)" : "var(--text)" }}
+                      autoFocus
+                    />
+                    {belowPaid && <div style={{ fontSize: 11.5, color: "var(--red)", marginTop: 6 }}>ইতোমধ্যে পরিশোধিত পরিমাণের কম করা যাবে না ({formatCurrency(aInv.paid)})</div>}
+                  </div>
+
+                  {Number.isFinite(newAmt) && newAmt > 0 && newAmt !== currentAmount && !belowPaid && (
+                    <div style={{ background: "var(--bg)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", color: "var(--text-secondary)" }}>
+                        <span>পরিবর্তন</span>
+                        <span style={{ fontWeight: 700, color: delta >= 0 ? "var(--orange)" : "var(--green)" }}>{delta >= 0 ? "+" : ""}{formatCurrency(delta)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        <span>নতুন বকেয়া</span>
+                        <span style={{ fontWeight: 700 }}>{formatCurrency(newOutstanding)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">কারণ <span style={{ color: "var(--red)" }}>*</span></label>
+                    <BanglaTextarea
+                      className="form-textarea"
+                      placeholder="যেমন: মক্কেল ফি পুনর্বিবেচনা করেছেন; এক এলাকার কাজে সীমিত।"
+                      value={amendForm.reason}
+                      onChange={e => setAmendForm(p => ({ ...p, reason: e.target.value }))}
+                      rows={3}
+                      style={{ resize: "vertical", minHeight: 70 }}
+                    />
+                    <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>এটি এই চালানের স্থায়ী অডিট ট্রেইলে দেখানো হবে।</div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                    <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setAmendModal(null)} disabled={amendBusy}>বাতিল</button>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 1, justifyContent: "center", padding: "10px 0", opacity: amendBusy ? 0.7 : 1 }}
+                      onClick={submitAmendment}
+                      disabled={amendBusy || belowPaid || !Number.isFinite(newAmt) || newAmt === currentAmount || amendForm.reason.trim().length < 3}
+                    >{amendBusy ? "সংরক্ষণ হচ্ছে…" : "সংশোধন সংরক্ষণ করুন"}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -228,9 +511,9 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
 
   return (
     <div className="fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div className="page-header">
         <div><h2 style={{ fontSize: 22, fontWeight: 700 }}>চালান</h2><p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>চালান, পেমেন্ট ও বকেয়া পরিচালনা করুন</p></div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="page-header-actions">
           <div className="search-bar"><Icon name="search" size={16} /><input placeholder="চালান অনুসন্ধান..." value={search} onChange={e => setSearch(e.target.value)} /></div>
           <button className="btn btn-primary" onClick={() => setCreateModal(true)}><Icon name="plus" size={16} /> নতুন চালান</button>
         </div>
@@ -256,20 +539,135 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
           ))}</tbody>
         </table>
       </div></div>
-      {createModal && <InvoiceModal clients={clients} setClients={setClients} onClose={() => setCreateModal(false)} onSave={(inv) => { setInvoices(prev => [inv, ...prev]); setCreateModal(false); }} />}
+      {createModal && <InvoiceModal clients={clients} setClients={setClients} currentUser={currentUser} onClose={() => setCreateModal(false)} onSave={(inv) => {
+        setInvoices(prev => [inv, ...prev]);
+        setCreateModal(false);
+        refreshData?.();
+        const client = clients.find(c => c.id === inv.clientId);
+        const now = new Date();
+        setInvoiceReceiptData?.({
+          invoiceNo: inv.invoiceNo,
+          issueDate: inv.issueDate,
+          issuedAt: now.toLocaleString("bn-BD", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+          preparedBy: currentUser?.displayName || "",
+          preparedByRole: currentUser?.displayRole || "",
+          client: client ? {
+            name: client.name,
+            address: client.address,
+            contact: client.contact,
+            email: client.email,
+            phone: client.phone,
+          } : { name: inv.clientName, address: "", contact: "", email: "", phone: "" },
+          items: inv.items || [],
+          amount: inv.amount,
+          status: inv.status,
+        });
+      }} />}
+
+      {amendModal && (() => {
+        const inv = invoices.find(i => i.id === amendModal.invoiceId);
+        if (!inv) return null;
+        const currentAmount = inv.amount;
+        const newAmt = Number(amendForm.newAmount);
+        const delta = Number.isFinite(newAmt) ? newAmt - currentAmount : 0;
+        const newOutstanding = Number.isFinite(newAmt) ? Math.max(0, newAmt - inv.paid) : inv.outstanding;
+        const belowPaid = Number.isFinite(newAmt) && newAmt < inv.paid;
+        return (
+          <div className="modal-overlay" {...overlayDismiss(() => setAmendModal(null))}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+              <div className="modal-header">
+                <div>
+                  <h2 style={{ marginBottom: 2 }}>চালান সংশোধন</h2>
+                  <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>{inv.invoiceNo} · {inv.clientName}</p>
+                </div>
+                <button className="modal-close" onClick={() => setAmendModal(null)}><Icon name="x" size={16} /></button>
+              </div>
+              <div className="modal-body">
+                <div style={{ background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "var(--accent)", lineHeight: 1.5 }}>
+                  <strong>অডিট ট্রেইল:</strong> প্রতিটি সংশোধন স্থায়ীভাবে কারণ, নতুন পরিমাণ, সময় ও আপনার নামসহ রেকর্ড করা হয়। অতীত সংশোধনগুলো সম্পাদনা বা মুছে ফেলা যায় না।
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label className="form-label">বর্তমান পরিমাণ</label>
+                    <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(currentAmount)}</div>
+                  </div>
+                  <div>
+                    <label className="form-label">ইতোমধ্যে পরিশোধিত</label>
+                    <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(inv.paid)}</div>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">নতুন পরিমাণ (টাকা) <span style={{ color: "var(--red)" }}>*</span></label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    placeholder="যেমন: ৪৫০০০০"
+                    value={amendForm.newAmount}
+                    onChange={e => setAmendForm(p => ({ ...p, newAmount: e.target.value }))}
+                    style={{ fontSize: 18, fontWeight: 600, color: belowPaid ? "var(--red)" : "var(--text)" }}
+                    autoFocus
+                  />
+                  {belowPaid && <div style={{ fontSize: 11.5, color: "var(--red)", marginTop: 6 }}>ইতোমধ্যে পরিশোধিত পরিমাণের কম করা যাবে না ({formatCurrency(inv.paid)})</div>}
+                </div>
+
+                {Number.isFinite(newAmt) && newAmt > 0 && newAmt !== currentAmount && !belowPaid && (
+                  <div style={{ background: "var(--bg)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", color: "var(--text-secondary)" }}>
+                      <span>পরিবর্তন</span>
+                      <span style={{ fontWeight: 700, color: delta >= 0 ? "var(--orange)" : "var(--green)" }}>{delta >= 0 ? "+" : ""}{formatCurrency(delta)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                      <span>নতুন বকেয়া</span>
+                      <span style={{ fontWeight: 700 }}>{formatCurrency(newOutstanding)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">কারণ <span style={{ color: "var(--red)" }}>*</span></label>
+                  <BanglaTextarea
+                    className="form-textarea"
+                    placeholder="যেমন: মক্কেল ফি পুনর্বিবেচনা করেছেন; এক এলাকার কাজে সীমিত।"
+                    value={amendForm.reason}
+                    onChange={e => setAmendForm(p => ({ ...p, reason: e.target.value }))}
+                    rows={3}
+                    style={{ resize: "vertical", minHeight: 70 }}
+                  />
+                  <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>এটি এই চালানের স্থায়ী অডিট ট্রেইলে দেখানো হবে।</div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                  <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setAmendModal(null)} disabled={amendBusy}>বাতিল</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, justifyContent: "center", padding: "10px 0", opacity: amendBusy ? 0.7 : 1 }}
+                    onClick={submitAmendment}
+                    disabled={amendBusy || belowPaid || !Number.isFinite(newAmt) || newAmt === currentAmount || amendForm.reason.trim().length < 3}
+                  >{amendBusy ? "সংরক্ষণ হচ্ছে…" : "সংশোধন সংরক্ষণ করুন"}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function InvoiceModal({ clients, setClients, onClose, onSave }) {
+function InvoiceModal({ clients, setClients, currentUser, onClose, onSave }) {
+  const isDirector = currentUser?.role === "director";
   const billableEmployees = EMPLOYEES.filter(e => e.category !== "support");
+  // অ-পরিচালকদের জন্য: নিজের আইডি একমাত্র বৈধ পছন্দ
+  const defaultEmpId = isDirector ? (billableEmployees[0]?.id || "") : currentUser.employeeId;
   const [clientId, setClientId] = useState(clients[0]?.id || "");
   const [issueDate, setIssueDate] = useState(NOW.toISOString().split("T")[0]);
-  const [items, setItems] = useState([{ description: "", employeeId: billableEmployees[0]?.id || "", amount: 0 }]);
+  const [items, setItems] = useState([{ description: "", employeeId: defaultEmpId, amount: 0 }]);
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", address: "", contact: "", email: "", phone: "" });
 
-  const addItem = () => setItems(prev => [...prev, { description: "", employeeId: billableEmployees[0]?.id || "", amount: 0 }]);
+  const addItem = () => setItems(prev => [...prev, { description: "", employeeId: defaultEmpId, amount: 0 }]);
   const updateItem = (idx, field, value) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: field === "amount" ? Number(value) || 0 : value } : it));
   const removeItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
 
@@ -320,7 +718,7 @@ function InvoiceModal({ clients, setClients, onClose, onSave }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...overlayDismiss(onClose)}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
         <div className="modal-header"><h2>চালান তৈরি করুন</h2><button className="modal-close" onClick={onClose}><Icon name="x" size={16} /></button></div>
         <div className="modal-body">
@@ -347,17 +745,17 @@ function InvoiceModal({ clients, setClients, onClose, onSave }) {
 
           <div style={{ marginBottom: 12 }}>
             <label className="form-label">আইটেমসমূহ</label>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 0.3fr", gap: 8, marginBottom: 6, fontSize: 10.5, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: 0.3, padding: "0 4px" }}>
+            <div className="line-item-header">
               <span>বিবরণ</span><span>পরিচালনাকারী</span><span>পরিমাণ (টাকা)</span><span></span>
             </div>
             {items.map((item, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 0.3fr", gap: 8, marginBottom: 8 }}>
-                <input className="form-input" placeholder="যেমন: চুক্তি প্রস্তুতি" value={item.description} onChange={e => updateItem(i, "description", e.target.value)} />
-                <select className="form-select" value={item.employeeId} onChange={e => updateItem(i, "employeeId", e.target.value)}>
-                  {billableEmployees.map(emp => <option key={emp.id} value={emp.id}>{emp.shortName}</option>)}
+              <div key={i} className="line-item-row">
+                <BanglaInput className="form-input" placeholder="যেমন: চুক্তি প্রস্তুতি" value={item.description} onChange={e => updateItem(i, "description", e.target.value)} />
+                <select className="form-select" value={item.employeeId} onChange={e => updateItem(i, "employeeId", e.target.value)} disabled={!isDirector} title={isDirector ? "" : "কর্মচারীরা শুধুমাত্র নিজেকে কাজ অর্পণ করতে পারেন"}>
+                  {(isDirector ? billableEmployees : billableEmployees.filter(emp => emp.id === currentUser.employeeId)).map(emp => <option key={emp.id} value={emp.id}>{emp.shortName}</option>)}
                 </select>
                 <input className="form-input" type="number" placeholder="০" value={item.amount || ""} onChange={e => updateItem(i, "amount", e.target.value)} />
-                <button className="btn btn-secondary btn-sm" onClick={() => removeItem(i)} style={{ padding: "8px" }} disabled={items.length === 1}><Icon name="x" size={14} /></button>
+                <button className="btn btn-secondary btn-sm line-item-remove" onClick={() => removeItem(i)} disabled={items.length === 1}><Icon name="x" size={14} /></button>
               </div>
             ))}
           </div>
@@ -373,22 +771,22 @@ function InvoiceModal({ clients, setClients, onClose, onSave }) {
 
       {/* মক্কেল যোগ করার মডাল */}
       {addClientOpen && (
-        <div className="modal-overlay" onClick={() => setAddClientOpen(false)} style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" {...overlayDismiss(() => setAddClientOpen(false))} style={{ zIndex: 1100 }}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="modal-header"><h2>নতুন মক্কেল যোগ করুন</h2><button className="modal-close" onClick={() => setAddClientOpen(false)}><Icon name="x" size={16} /></button></div>
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">কোম্পানির নাম <span style={{ color: "var(--red)" }}>*</span></label>
-                <input className="form-input" placeholder="যেমন: এবিসি কর্পোরেশন লিমিটেড" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} autoFocus />
+                <BanglaInput className="form-input" placeholder="যেমন: এবিসি কর্পোরেশন লিমিটেড" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} autoFocus />
               </div>
               <div className="form-group">
                 <label className="form-label">ঠিকানা <span style={{ color: "var(--red)" }}>*</span></label>
-                <textarea className="form-textarea" placeholder="সম্পূর্ণ ঠিকানা" value={newClient.address} onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))} rows={3} style={{ resize: "vertical", minHeight: 70 }} />
+                <BanglaTextarea className="form-textarea" placeholder="সম্পূর্ণ ঠিকানা" value={newClient.address} onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))} rows={3} style={{ resize: "vertical", minHeight: 70 }} />
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">যোগাযোগের ব্যক্তি <span style={{ color: "var(--red)" }}>*</span></label>
-                  <input className="form-input" placeholder="যেমন: আইন বিভাগ" value={newClient.contact} onChange={e => setNewClient(p => ({ ...p, contact: e.target.value }))} />
+                  <BanglaInput className="form-input" placeholder="যেমন: আইন বিভাগ" value={newClient.contact} onChange={e => setNewClient(p => ({ ...p, contact: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">ইমেইল <span style={{ color: "var(--text-tertiary)", fontWeight: 400, fontSize: 11 }}>(ঐচ্ছিক)</span></label>
@@ -685,6 +1083,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const [invoices, setInvoices] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [search, setSearch] = useState("");
@@ -692,9 +1091,21 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [receiptData, setReceiptData] = useState(null);
+  const [invoiceReceiptData, setInvoiceReceiptData] = useState(null);
   const [clientModal, setClientModal] = useState(null); // null | { mode: "add" } | { mode: "edit", clientId }
   const [clientForm, setClientForm] = useState({ name: "", address: "", contact: "", email: "", phone: "" });
-  const [selectedAnalyticsDate, setSelectedAnalyticsDate] = useState(NOW.toISOString().split("T")[0]);
+  const [selectedAnalyticsDate, setSelectedAnalyticsDate] = useState(() => {
+    const d = NOW;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  });
+  // বিশ্লেষণ পেজের সময়সীমা (১, ৩, ৬, ৯, বা ১২ মাস)
+  const [analyticsMonths, setAnalyticsMonths] = useState(6);
+  const [reconcileDate, setReconcileDate] = useState(() => {
+    const d = NOW;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  });
+  const [countedCash, setCountedCash] = useState("");
+  const [countedBkash, setCountedBkash] = useState("");
 
   // সার্ভার থেকে ডেটা লোড করুন
   const refreshData = useCallback(async () => {
@@ -736,7 +1147,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     role: currentUser.displayRole,
   }), [currentUser]);
 
-  const navigate = useCallback((pg) => { setPage(pg); setSelectedEmployee(null); setSelectedInvoice(null); setSearch(""); }, []);
+  const navigate = useCallback((pg) => { setPage(pg); setSelectedEmployee(null); setSelectedInvoice(null); setSearch(""); setSidebarOpen(false); }, []);
 
   const currentMonth = NOW.getMonth();
   const currentYear = NOW.getFullYear();
@@ -752,9 +1163,10 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const totalOverdue = useMemo(() => visibleInvoices.filter(i => i.status === "overdue").reduce((s, i) => s + i.outstanding, 0), [visibleInvoices]);
   const overdueCount = useMemo(() => visibleInvoices.filter(i => i.status === "overdue").length, [visibleInvoices]);
 
-  const getEmployeeMonthlyData = useCallback((empId) => {
+  // N মাসের সমষ্টি — ডিফল্ট ৬ মাস
+  const getEmployeeMonthlyData = useCallback((empId, monthsBack = 6) => {
     const result = [];
-    for (let m = 5; m >= 0; m--) {
+    for (let m = monthsBack - 1; m >= 0; m--) {
       const d = new Date(NOW.getFullYear(), NOW.getMonth() - m, 1);
       let count = 0;
       let revenue = 0;
@@ -777,9 +1189,9 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     return result;
   }, [invoices]);
 
-  const getMonthlyRevenueData = useMemo(() => {
+  const buildMonthlyRevenueData = useCallback((monthsBack = 6) => {
     const result = [];
-    for (let m = 5; m >= 0; m--) {
+    for (let m = monthsBack - 1; m >= 0; m--) {
       const d = new Date(NOW.getFullYear(), NOW.getMonth() - m, 1);
       result.push({
         label: MONTHS[d.getMonth()],
@@ -789,6 +1201,8 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     }
     return result;
   }, [visibleInvoices]);
+
+  const getMonthlyRevenueData = useMemo(() => buildMonthlyRevenueData(6), [buildMonthlyRevenueData]);
 
   const recordPayment = useCallback(async (invoiceId, amount, method) => {
     try {
@@ -910,13 +1324,13 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
           <div className="card-body">
             <div className="donut-wrap">
               <DonutChart data={[
-                { value: invoices.filter(i => i.status === "paid").reduce((s,i) => s + i.paid, 0), color: "var(--green)" },
-                { value: totalOutstanding - totalOverdue, color: "var(--orange)" },
+                { value: totalRevenue, color: "var(--green)" },
+                { value: Math.max(0, totalOutstanding - totalOverdue), color: "var(--orange)" },
                 { value: totalOverdue, color: "var(--red)" },
               ]} size={130} />
               <div className="donut-legend">
-                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--green)" }} /><div><div style={{ fontWeight: 600 }}>পরিশোধিত</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(invoices.filter(i => i.status === "paid").reduce((s,i) => s + i.paid, 0))}</div></div></div>
-                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--orange)" }} /><div><div style={{ fontWeight: 600 }}>বকেয়া</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(totalOutstanding - totalOverdue)}</div></div></div>
+                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--green)" }} /><div><div style={{ fontWeight: 600 }}>পরিশোধিত</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(totalRevenue)}</div></div></div>
+                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--orange)" }} /><div><div style={{ fontWeight: 600 }}>বকেয়া</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(Math.max(0, totalOutstanding - totalOverdue))}</div></div></div>
                 <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--red)" }} /><div><div style={{ fontWeight: 600 }}>মেয়াদোত্তীর্ণ</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(totalOverdue)}</div></div></div>
               </div>
             </div>
@@ -1046,9 +1460,11 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     const filtered = EMPLOYEES.filter(e => e.name.toLowerCase().includes(search.toLowerCase()) || e.role.toLowerCase().includes(search.toLowerCase()));
     return (
       <div className="fade-in">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div className="page-header">
           <div><h2 style={{ fontSize: 22, fontWeight: 700 }}>টিমের সদস্যবৃন্দ</h2><p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{formatNumber(EMPLOYEES.length)} জন সদস্য · {formatNumber(EMPLOYEES.filter(e => e.category !== "support").length)} জন ফি উপার্জনকারী</p></div>
-          <div className="search-bar"><Icon name="search" size={16} /><input placeholder="কর্মী অনুসন্ধান..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+          <div className="page-header-actions">
+            <div className="search-bar"><Icon name="search" size={16} /><input placeholder="কর্মী অনুসন্ধান..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+          </div>
         </div>
         <div className="card">
           <div className="card-body" style={{ padding: "0 24px" }}>
@@ -1085,14 +1501,16 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   // ── মক্কেল ──
   const renderClients = () => (
     <div className="fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div className="page-header">
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700 }}>মক্কেলগণ</h2>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{formatNumber(clients.length)} জন সক্রিয় মক্কেল</p>
         </div>
-        <button className="btn btn-primary" onClick={openAddClient}>
-          <Icon name="plus" size={14} /> মক্কেল যোগ করুন
-        </button>
+        <div className="page-header-actions">
+          <button className="btn btn-primary" onClick={openAddClient}>
+            <Icon name="plus" size={14} /> মক্কেল যোগ করুন
+          </button>
+        </div>
       </div>
       <div className="card"><div className="card-body" style={{ padding: "0 24px" }}>
         <table>
@@ -1123,8 +1541,16 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
 
   // ── বিশ্লেষণ ──
   const renderAnalytics = () => {
+    // বিশ্লেষণ উইন্ডোর কাট-অফ তারিখ গণনা করুন
+    const windowStart = new Date(NOW.getFullYear(), NOW.getMonth() - (analyticsMonths - 1), 1);
+    const inWindow = (inv) => {
+      const d = new Date(inv.year, inv.month, 1);
+      return d >= windowStart;
+    };
+    const windowedInvoices = visibleInvoices.filter(inWindow);
+
     const clientRevenue = {};
-    invoices.forEach(inv => {
+    windowedInvoices.forEach(inv => {
       if (!clientRevenue[inv.clientId]) clientRevenue[inv.clientId] = { name: inv.clientName, paid: 0, outstanding: 0, total: 0 };
       clientRevenue[inv.clientId].paid += inv.paid;
       clientRevenue[inv.clientId].outstanding += inv.outstanding;
@@ -1133,14 +1559,15 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     const clientData = Object.values(clientRevenue).sort((a,b) => b.total - a.total);
 
     // গত ৭ দিনের পেমেন্ট পদ্ধতি অনুযায়ী বিভাজন
+    const formatDateLocal = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const dayLabels = ["রবি","সোম","মঙ্গল","বুধ","বৃহঃ","শুক্র","শনি"];
     const monthNames = ["জানু","ফেব্রু","মার্চ","এপ্রি","মে","জুন","জুলাই","আগ","সেপ্টে","অক্টো","নভে","ডিসে"];
     const dailyPayments = [];
     for (let d = 6; d >= 0; d--) {
       const day = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - d);
-      const dayStr = day.toISOString().split("T")[0];
+      const dayStr = formatDateLocal(day);
       let cash = 0, bkash = 0;
-      invoices.forEach(inv => {
+      visibleInvoices.forEach(inv => {
         (inv.payments || []).forEach(p => {
           if (p.dateOnly === dayStr) {
             if (p.method === "bkash") bkash += p.amount;
@@ -1161,22 +1588,236 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     const totalBkash7d = dailyPayments.reduce((s, d) => s + d.bkash, 0);
     const total7d = totalCash7d + totalBkash7d;
 
-    const empData = EMPLOYEES.filter(e => e.category !== "support").map(emp => {
-      const data = getEmployeeMonthlyData(emp.id);
+    const empData = (isDirector ? EMPLOYEES.filter(e => e.category !== "support") : EMPLOYEES.filter(e => e.id === currentUser.employeeId)).map(emp => {
+      const data = getEmployeeMonthlyData(emp.id, analyticsMonths);
       return { emp, totalRev: data.reduce((s,d) => s + d.revenue, 0), totalCount: data.reduce((s,d) => s + d.count, 0) };
     }).sort((a,b) => b.totalRev - a.totalRev);
 
-    const totalInvoiced = invoices.reduce((s, i) => s + i.amount, 0);
-    const collectionRate = totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0;
+    const windowedRevenue = windowedInvoices.reduce((s, i) => s + i.paid, 0);
+    const windowedInvoiced = windowedInvoices.reduce((s, i) => s + i.amount, 0);
+    const collectionRate = windowedInvoiced > 0 ? Math.round((windowedRevenue / windowedInvoiced) * 100) : 0;
+
+    // দৈনিক মিল-মিলকরণ ডেটা
+    const reconcileData = (() => {
+      const all = [];
+      invoices.forEach(inv => {
+        (inv.payments || []).forEach(p => {
+          if (p.dateOnly === reconcileDate) {
+            all.push({ ...p, invoiceNo: inv.invoiceNo, clientName: inv.clientName });
+          }
+        });
+      });
+      return all;
+    })();
+    const reconcileByReceiver = (() => {
+      const map = {};
+      reconcileData.forEach(p => {
+        const name = p.recordedBy || "অজানা";
+        if (!map[name]) map[name] = { name, cash: 0, bkash: 0, total: 0, count: 0 };
+        if (p.method === "bkash") map[name].bkash += p.amount;
+        else map[name].cash += p.amount;
+        map[name].total += p.amount;
+        map[name].count += 1;
+      });
+      return Object.values(map).sort((a, b) => b.total - a.total);
+    })();
+    const myReconcile = reconcileData.filter(p => p.recordedBy === userInfo.name);
+    const mySystemCash = myReconcile.filter(p => p.method !== "bkash").reduce((s, p) => s + p.amount, 0);
+    const mySystemBkash = myReconcile.filter(p => p.method === "bkash").reduce((s, p) => s + p.amount, 0);
+    const cashCount = parseFloat(countedCash) || 0;
+    const bkashCount = parseFloat(countedBkash) || 0;
+    const cashVariance = cashCount - mySystemCash;
+    const bkashVariance = bkashCount - mySystemBkash;
+    const friendlyDate = (() => {
+      const d = new Date(reconcileDate + "T00:00:00");
+      return d.toLocaleDateString("bn-BD", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    })();
 
     return (
       <div className="fade-in">
-        <div style={{ marginBottom: 28 }}><h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.4 }}>বিশ্লেষণ</h2><p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>ফার্মের কর্মক্ষমতা বিশ্লেষণ — গত ৬ মাস</p></div>
+        <div style={{ marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.4 }}>বিশ্লেষণ</h2>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>
+              {isDirector ? "ফার্মের কর্মক্ষমতা বিশ্লেষণ" : "আপনার কর্মক্ষমতা বিশ্লেষণ"} — গত {formatNumber(analyticsMonths)} মাস
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>সময়সীমা:</label>
+            <select
+              className="form-select"
+              value={analyticsMonths}
+              onChange={e => setAnalyticsMonths(Number(e.target.value))}
+              style={{ minWidth: 160, fontSize: 13, fontWeight: 600 }}
+            >
+              <option value={1}>গত ১ মাস</option>
+              <option value={3}>গত ৩ মাস</option>
+              <option value={6}>গত ৬ মাস</option>
+              <option value={9}>গত ৯ মাস</option>
+              <option value={12}>গত ১২ মাস</option>
+            </select>
+          </div>
+        </div>
 
         <div className="stats-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-          <div className="stat-card"><div className="stat-label">আদায়কৃত আয় (৬ মাস)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--green)" }}>{formatCurrency(totalRevenue)}</div></div>
-          <div className="stat-card"><div className="stat-label">মোট চালান (৬ মাস)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--accent)" }}>{formatCurrency(totalInvoiced)}</div></div>
+          <div className="stat-card"><div className="stat-label">আদায়কৃত আয় ({formatNumber(analyticsMonths)} মাস)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--green)" }}>{formatCurrency(windowedRevenue)}</div></div>
+          <div className="stat-card"><div className="stat-label">মোট চালান ({formatNumber(analyticsMonths)} মাস)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--accent)" }}>{formatCurrency(windowedInvoiced)}</div></div>
           <div className="stat-card"><div className="stat-label">আদায়ের হার</div><div className="stat-value" style={{ fontSize: 22, color: collectionRate >= 70 ? "var(--green)" : collectionRate >= 50 ? "var(--orange)" : "var(--red)" }}>{formatNumber(collectionRate)}%</div></div>
+        </div>
+
+        {/* ─── দৈনিক মিল-মিলকরণ ─── */}
+        <div className="card" style={{ marginBottom: 24 }}>
+          <div className="card-header" style={{ flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h3>{isDirector ? "দৈনিক আদায় — প্রতি কর্মচারী" : "দৈনিক মিল-মিলকরণ"}</h3>
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{friendlyDate}</span>
+            </div>
+            <input
+              type="date"
+              className="form-input"
+              value={reconcileDate}
+              onChange={e => setReconcileDate(e.target.value)}
+              style={{ maxWidth: 180, fontSize: 13 }}
+            />
+          </div>
+          <div className="card-body">
+            {isDirector ? (
+              reconcileByReceiver.length === 0 ? (
+                <div className="empty-state"><p>{friendlyDate} তারিখে কোন পেমেন্ট রেকর্ড করা হয়নি</p></div>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>রেকর্ডকারী</th>
+                      <th style={{ textAlign: "right" }}>নগদ</th>
+                      <th style={{ textAlign: "right" }}>বিকাশ</th>
+                      <th style={{ textAlign: "right" }}>মোট</th>
+                      <th style={{ textAlign: "right" }}>লেনদেন</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconcileByReceiver.map(r => (
+                      <tr key={r.name}>
+                        <td style={{ fontWeight: 600 }}>{r.name}</td>
+                        <td style={{ textAlign: "right" }}>{formatCurrency(r.cash)}</td>
+                        <td style={{ textAlign: "right", color: "#E2136E" }}>{formatCurrency(r.bkash)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{formatCurrency(r.total)}</td>
+                        <td style={{ textAlign: "right", color: "var(--text-tertiary)" }}>{formatNumber(r.count)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700, background: "var(--bg)" }}>
+                      <td>ফার্ম মোট</td>
+                      <td style={{ textAlign: "right" }}>{formatCurrency(reconcileByReceiver.reduce((s, r) => s + r.cash, 0))}</td>
+                      <td style={{ textAlign: "right", color: "#E2136E" }}>{formatCurrency(reconcileByReceiver.reduce((s, r) => s + r.bkash, 0))}</td>
+                      <td style={{ textAlign: "right" }}>{formatCurrency(reconcileByReceiver.reduce((s, r) => s + r.total, 0))}</td>
+                      <td style={{ textAlign: "right" }}>{formatNumber(reconcileByReceiver.reduce((s, r) => s + r.count, 0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )
+            ) : (
+              <div>
+                <div className="reconcile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 20 }}>
+                  <div style={{ padding: 16, background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--accent)", marginBottom: 12 }}>নগদ</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>সিস্টেমে রেকর্ডকৃত</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{formatCurrency(mySystemCash)}</span>
+                    </div>
+                    <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <label style={{ fontSize: 12.5, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>হাতে নগদ (গণনাকৃত)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="আপনার নগদ পরিমাণ লিখুন"
+                        value={countedCash}
+                        onChange={e => setCountedCash(e.target.value)}
+                        style={{ fontSize: 14 }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", alignItems: "center" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 600 }}>পার্থক্য</span>
+                      <span style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: countedCash === "" ? "var(--text-tertiary)"
+                              : cashVariance === 0 ? "var(--green)"
+                              : "var(--red)",
+                      }}>
+                        {countedCash === "" ? "—" : (cashVariance === 0 ? `✓ ${formatCurrency(0)}` : `${cashVariance > 0 ? "+" : ""}${formatCurrency(cashVariance)}`)}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ padding: 16, background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#E2136E", marginBottom: 12 }}>বিকাশ</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>সিস্টেমে রেকর্ডকৃত</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{formatCurrency(mySystemBkash)}</span>
+                    </div>
+                    <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <label style={{ fontSize: 12.5, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>বিকাশ ব্যালেন্স (গণনাকৃত)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="আপনার বিকাশ ব্যালেন্স"
+                        value={countedBkash}
+                        onChange={e => setCountedBkash(e.target.value)}
+                        style={{ fontSize: 14 }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", alignItems: "center" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 600 }}>পার্থক্য</span>
+                      <span style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: countedBkash === "" ? "var(--text-tertiary)"
+                              : bkashVariance === 0 ? "var(--green)"
+                              : "var(--red)",
+                      }}>
+                        {countedBkash === "" ? "—" : (bkashVariance === 0 ? `✓ ${formatCurrency(0)}` : `${bkashVariance > 0 ? "+" : ""}${formatCurrency(bkashVariance)}`)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {myReconcile.length === 0 ? (
+                  <div className="empty-state" style={{ marginTop: 8 }}>
+                    <p>{friendlyDate} তারিখে আপনি কোন পেমেন্ট রেকর্ড করেননি</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--text-tertiary)", marginBottom: 8 }}>আপনার রেকর্ডকৃত লেনদেন ({formatNumber(myReconcile.length)})</div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>চালান</th>
+                          <th>মক্কেল</th>
+                          <th>পদ্ধতি</th>
+                          <th style={{ textAlign: "right" }}>পরিমাণ</th>
+                          <th>রসিদ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myReconcile.map(p => (
+                          <tr key={p.id}>
+                            <td style={{ fontWeight: 600 }}>{p.invoiceNo}</td>
+                            <td>{p.clientName}</td>
+                            <td><span className="badge-status" style={{ background: p.method === "bkash" ? "rgba(226,19,110,0.1)" : "var(--accent-light)", color: p.method === "bkash" ? "#E2136E" : "var(--accent)" }}>{p.method === "bkash" ? "বিকাশ" : "নগদ"}</span></td>
+                            <td style={{ textAlign: "right", fontWeight: 700 }}>{formatCurrency(p.amount)}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 11.5, color: "var(--text-tertiary)" }}>{p.receiptNo}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 16, padding: "12px 14px", background: "var(--accent-light)", borderRadius: 10, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <strong style={{ color: "var(--accent)" }}>মিল-মিলকরণের নিয়ম:</strong> আপনার হাতের নগদ গুনুন এবং বিকাশ ব্যালেন্স দেখুন, তারপর উপরে লিখুন। পার্থক্য সিস্টেমের রেকর্ড ও আপনার গণনার মধ্যে ফারাক দেখায়। শূন্য পার্থক্য মানে সবকিছু মিলে গেছে; অন্যথায় কোন পেমেন্ট রেকর্ড না হতে পারে অথবা আপনি কিছু টাকা খরচ করেছেন।
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* গত ৭ দিনের প্রাপ্ত পেমেন্ট */}
@@ -1249,7 +1890,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
         {/* দৈনিক গ্রহণকারী জবাবদিহিতা চার্ট */}
         {(() => {
           const receiverMap = {};
-          invoices.forEach(inv => {
+          visibleInvoices.forEach(inv => {
             (inv.payments || []).forEach(p => {
               if (p.dateOnly === selectedAnalyticsDate) {
                 const name = p.recordedBy || "অজানা";
@@ -1394,7 +2035,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
         </div>
 
         <div className="card">
-          <div className="card-header"><h3>কর্মী পারফরম্যান্স তালিকা</h3><span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>আনিত আয় (৬ মাস)</span></div>
+          <div className="card-header"><h3>{isDirector ? "কর্মী পারফরম্যান্স তালিকা" : "আপনার পারফরম্যান্স"}</h3><span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>আনিত আয় ({formatNumber(analyticsMonths)} মাস)</span></div>
           <div className="card-body" style={{ paddingTop: 8 }}>
             {empData.map(({ emp, totalRev, totalCount }, i) => {
               const avgPerCase = totalCount > 0 ? Math.round(totalRev / totalCount) : 0;
@@ -1426,11 +2067,15 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const pageTitle = { dashboard: "ড্যাশবোর্ড", employees: "টিম", invoices: "চালান", outstanding: "বকেয়া", clients: "মক্কেলগণ", analytics: "বিশ্লেষণ" };
 
   const renderPage = () => {
+    // অ-পরিচালককে টিম ও মক্কেল পেজ থেকে বিরত রাখুন
+    if (!isDirector && (page === "employees" || page === "clients")) {
+      return renderDashboard();
+    }
     switch (page) {
       case "dashboard": return renderDashboard();
       case "employees": return renderEmployees();
-      case "invoices": return <InvoicesPage invoices={invoices} setInvoices={setInvoices} clients={clients} setClients={setClients} selectedInvoice={selectedInvoice} setSelectedInvoice={setSelectedInvoice} totalRevenue={totalRevenue} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} />;
-      case "outstanding": return <OutstandingPage invoices={invoices} clients={clients} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} overdueCount={overdueCount} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} setSelectedInvoice={setSelectedInvoice} navigateTo={(pg) => setPage(pg)} />;
+      case "invoices": return <InvoicesPage invoices={visibleInvoices} setInvoices={setInvoices} clients={clients} setClients={setClients} selectedInvoice={selectedInvoice} setSelectedInvoice={setSelectedInvoice} totalRevenue={totalRevenue} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} currentUser={currentUser} refreshData={refreshData} setInvoiceReceiptData={setInvoiceReceiptData} />;
+      case "outstanding": return <OutstandingPage invoices={visibleInvoices} clients={clients} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} overdueCount={overdueCount} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} setSelectedInvoice={setSelectedInvoice} navigateTo={(pg) => setPage(pg)} />;
       case "clients": return renderClients();
       case "analytics": return renderAnalytics();
       default: return renderDashboard();
@@ -1441,7 +2086,8 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     <>
       <style>{CSS}</style>
       <div className="app">
-        <aside className="sidebar">
+        <div className={`sidebar-backdrop ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+        <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-brand"><h1>রুহুল কুদ্দুস<br/>অ্যান্ড জুরিস্টস</h1><p>প্র্যাকটিস ম্যানেজমেন্ট</p></div>
           <nav className="sidebar-nav">
             <div className="nav-section">
@@ -1492,12 +2138,24 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
           </div>
         </aside>
         <div className="main">
-          <header className="topbar"><h2 className="topbar-title">{pageTitle[page]}</h2><span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{MONTHS[currentMonth]} {formatNumber(currentYear)}</span></header>
+          <header className="topbar">
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+              <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="মেনু খুলুন">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </button>
+              <h2 className="topbar-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pageTitle[page]}</h2>
+            </div>
+            <span className="topbar-date" style={{ fontSize: 12, color: "var(--text-tertiary)", flexShrink: 0 }}>{MONTHS[currentMonth]} {formatNumber(currentYear)}</span>
+          </header>
           <div className="content">{renderPage()}</div>
         </div>
       </div>
       {paymentModal && (
-        <div className="modal-overlay" onClick={() => setPaymentModal(null)}>
+        <div className="modal-overlay" {...overlayDismiss(() => setPaymentModal(null))}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="modal-header"><h2>পেমেন্ট রেকর্ড করুন</h2><button className="modal-close" onClick={() => setPaymentModal(null)}><Icon name="x" size={16} /></button></div>
             <div className="modal-body">{(() => {
@@ -1557,7 +2215,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
       )}
 
       {receiptData && (
-        <div className="modal-overlay" onClick={() => setReceiptData(null)}>
+        <div className="modal-overlay" {...overlayDismiss(() => setReceiptData(null))}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <div className="modal-header" style={{ paddingBottom: 8 }}>
               <div>
@@ -1640,8 +2298,118 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
         </div>
       )}
 
+      {invoiceReceiptData && (
+        <div className="modal-overlay" {...overlayDismiss(() => setInvoiceReceiptData(null))}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="modal-header" style={{ paddingBottom: 8 }}>
+              <div>
+                <h2 style={{ marginBottom: 2 }}>চালান</h2>
+                <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>চালান নং {invoiceReceiptData.invoiceNo}</p>
+              </div>
+              <button className="modal-close" onClick={() => setInvoiceReceiptData(null)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              {/* সফলতা ব্যানার — নীল (পেমেন্ট রসিদ সবুজের বদলে) */}
+              <div style={{ background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Icon name="check" size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--accent)" }}>চালান সফলভাবে তৈরি হয়েছে</div>
+                  <div style={{ fontSize: 11.5, color: "var(--accent)", marginTop: 2 }}>জারি · {invoiceReceiptData.issuedAt}</div>
+                </div>
+              </div>
+
+              {/* ফার্ম লেটারহেড */}
+              <div style={{ textAlign: "center", paddingBottom: 16, borderBottom: "2px solid var(--text)", marginBottom: 16 }}>
+                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3 }}>{FIRM.name}</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>{FIRM.address}</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 2 }}>{FIRM.phone} · {FIRM.email}</div>
+              </div>
+
+              {/* চালান নাম্বার + তারিখ */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 4 }}>চালান</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)" }}>{invoiceReceiptData.invoiceNo}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 4 }}>জারির তারিখ</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{invoiceReceiptData.issueDate}</div>
+                </div>
+              </div>
+
+              {/* বিল প্রাপক */}
+              <div style={{ background: "var(--bg)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 6 }}>বিল প্রাপক</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{invoiceReceiptData.client.name}</div>
+                {invoiceReceiptData.client.address && <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>{invoiceReceiptData.client.address}</div>}
+                {(invoiceReceiptData.client.contact || invoiceReceiptData.client.phone || invoiceReceiptData.client.email) && (
+                  <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 6 }}>
+                    {invoiceReceiptData.client.contact}
+                    {invoiceReceiptData.client.phone ? ` · ${invoiceReceiptData.client.phone}` : ""}
+                    {invoiceReceiptData.client.email ? ` · ${invoiceReceiptData.client.email}` : ""}
+                  </div>
+                )}
+              </div>
+
+              {/* লাইন আইটেম টেবিল */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 8, padding: "0 4px" }}>বিবরণ</div>
+                <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px", padding: "10px 14px", background: "var(--bg)", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, color: "var(--text-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                    <span>বিবরণ</span>
+                    <span style={{ textAlign: "left" }}>পরিচালনাকারী</span>
+                    <span style={{ textAlign: "right" }}>পরিমাণ</span>
+                  </div>
+                  {invoiceReceiptData.items.map((it, idx) => {
+                    const emp = EMPLOYEES.find(e => e.id === it.employeeId);
+                    return (
+                      <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px", padding: "11px 14px", fontSize: 12.5, borderBottom: idx < invoiceReceiptData.items.length - 1 ? "1px solid var(--border-light)" : "none", alignItems: "start", gap: 8 }}>
+                        <span style={{ lineHeight: 1.4 }}>{it.description}</span>
+                        <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{emp ? emp.shortName : "—"}</span>
+                        <span style={{ textAlign: "right", fontWeight: 600 }}>{formatCurrency(it.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* মোট ব্লক */}
+              <div style={{ background: "var(--bg)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", color: "var(--text-secondary)" }}>
+                  <span>উপ-মোট</span>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{formatCurrency(invoiceReceiptData.amount)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
+                  <span>কর / ভ্যাট</span>
+                  <span style={{ fontWeight: 600, color: "var(--text-tertiary)" }}>—</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, padding: "12px 0 4px", alignItems: "baseline" }}>
+                  <span style={{ fontWeight: 700 }}>মোট প্রদেয়</span>
+                  <span style={{ fontWeight: 700, fontSize: 20, color: "var(--accent)", letterSpacing: -0.4 }}>{formatCurrency(invoiceReceiptData.amount)}</span>
+                </div>
+              </div>
+
+              {/* ফুটার মেটা */}
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-tertiary)", padding: "8px 0", marginBottom: 12, borderTop: "1px solid var(--border-light)" }}>
+                <span>প্রস্তুতকারক: <strong style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{invoiceReceiptData.preparedBy}</strong> · {invoiceReceiptData.preparedByRole}</span>
+              </div>
+
+              {/* অ্যাকশন বাটন */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => window.print()}>চালান প্রিন্ট করুন</button>
+                <button className="btn btn-primary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setInvoiceReceiptData(null)}>সম্পন্ন</button>
+              </div>
+
+              <p style={{ fontSize: 10, color: "var(--text-tertiary)", textAlign: "center", marginTop: 14 }}>এটি একটি কম্পিউটার-জেনারেটেড চালান। পেমেন্টের নির্দেশনা আলাদাভাবে প্রদান করা হবে।</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {clientModal && (
-        <div className="modal-overlay" onClick={() => setClientModal(null)}>
+        <div className="modal-overlay" {...overlayDismiss(() => setClientModal(null))}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="modal-header">
               <h2>{clientModal.mode === "add" ? "নতুন মক্কেল যোগ করুন" : "মক্কেল সম্পাদনা"}</h2>
@@ -1650,7 +2418,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">কোম্পানির নাম <span style={{ color: "var(--red)" }}>*</span></label>
-                <input
+                <BanglaInput
                   className="form-input"
                   placeholder="যেমন: এবিসি কর্পোরেশন লিমিটেড"
                   value={clientForm.name}
@@ -1660,7 +2428,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
               </div>
               <div className="form-group">
                 <label className="form-label">ঠিকানা <span style={{ color: "var(--red)" }}>*</span></label>
-                <textarea
+                <BanglaTextarea
                   className="form-textarea"
                   placeholder="সম্পূর্ণ ঠিকানা"
                   value={clientForm.address}
@@ -1672,7 +2440,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">যোগাযোগের ব্যক্তি <span style={{ color: "var(--red)" }}>*</span></label>
-                  <input
+                  <BanglaInput
                     className="form-input"
                     placeholder="যেমন: আইন বিভাগ"
                     value={clientForm.contact}

@@ -146,7 +146,7 @@ app.get("/api/clients", requireAuth, async (_req, res) => {
   }
 });
 
-app.post("/api/clients", requireAuth, requireDirector, async (req, res) => {
+app.post("/api/clients", requireAuth, async (req, res) => {
   const { name, address, contact, email, phone } = req.body || {};
   if (!name?.trim()) return res.status(400).json({ error: "Client name is required" });
   if (!address?.trim()) return res.status(400).json({ error: "Address is required" });
@@ -252,6 +252,14 @@ async function loadInvoice(client, invoiceId) {
     [invoiceId]
   );
 
+  const amendments = await client.query(
+    `SELECT id, previous_amount AS "previousAmount", new_amount AS "newAmount",
+            delta, reason, amended_by_name AS "amendedByName",
+            amended_at AS "amendedAt"
+     FROM invoice_amendments WHERE invoice_id = $1 ORDER BY amended_at DESC`,
+    [invoiceId]
+  );
+
   return {
     ...inv.rows[0],
     amount: Number(inv.rows[0].amount),
@@ -259,6 +267,12 @@ async function loadInvoice(client, invoiceId) {
     outstanding: Number(inv.rows[0].outstanding),
     items: items.rows.map(r => ({ ...r, amount: Number(r.amount) })),
     payments: payments.rows.map(r => ({ ...r, amount: Number(r.amount) })),
+    amendments: amendments.rows.map(r => ({
+      ...r,
+      previousAmount: Number(r.previousAmount),
+      newAmount: Number(r.newAmount),
+      delta: Number(r.delta),
+    })),
   };
 }
 
@@ -307,7 +321,7 @@ app.get("/api/invoices", requireAuth, async (req, res) => {
 
     if (invoiceIds.length === 0) return res.json([]);
 
-    // Bulk-load items and payments
+    // Bulk-load items, payments, and amendments
     const itemsResult = await query(
       `SELECT id, invoice_id, description, employee_id AS "employeeId", amount
        FROM invoice_items WHERE invoice_id = ANY($1::uuid[])
@@ -320,6 +334,13 @@ app.get("/api/invoices", requireAuth, async (req, res) => {
               recorded_by_name AS "recordedBy", receipt_no AS "receiptNo"
        FROM payments WHERE invoice_id = ANY($1::uuid[])
        ORDER BY payment_date DESC`,
+      [invoiceIds]
+    );
+    const amendmentsResult = await query(
+      `SELECT id, invoice_id, previous_amount AS "previousAmount", new_amount AS "newAmount",
+              delta, reason, amended_by_name AS "amendedByName", amended_at AS "amendedAt"
+       FROM invoice_amendments WHERE invoice_id = ANY($1::uuid[])
+       ORDER BY amended_at DESC`,
       [invoiceIds]
     );
 
@@ -339,6 +360,20 @@ app.get("/api/invoices", requireAuth, async (req, res) => {
       });
       paymentsByInv.set(r.invoice_id, arr);
     }
+    const amendmentsByInv = new Map();
+    for (const r of amendmentsResult.rows) {
+      const arr = amendmentsByInv.get(r.invoice_id) || [];
+      arr.push({
+        id: r.id,
+        previousAmount: Number(r.previousAmount),
+        newAmount: Number(r.newAmount),
+        delta: Number(r.delta),
+        reason: r.reason,
+        amendedByName: r.amendedByName,
+        amendedAt: r.amendedAt,
+      });
+      amendmentsByInv.set(r.invoice_id, arr);
+    }
 
     const result = invoicesResult.rows.map(inv => ({
       ...inv,
@@ -347,6 +382,7 @@ app.get("/api/invoices", requireAuth, async (req, res) => {
       outstanding: Number(inv.outstanding),
       items: itemsByInv.get(inv.id) || [],
       payments: paymentsByInv.get(inv.id) || [],
+      amendments: amendmentsByInv.get(inv.id) || [],
     }));
     res.json(result);
   } catch (err) {
@@ -356,10 +392,13 @@ app.get("/api/invoices", requireAuth, async (req, res) => {
 });
 
 /**
- * POST /api/invoices — director only
+ * POST /api/invoices
+ * Director: can create invoices with any employeeId on line items.
+ * Employee: can create invoices, but every line item's employeeId must match their own
+ *           (they cannot assign work to other employees).
  * Body: { clientId, issueDate, items: [{description, employeeId, amount}] }
  */
-app.post("/api/invoices", requireAuth, requireDirector, async (req, res) => {
+app.post("/api/invoices", requireAuth, async (req, res) => {
   const { clientId, issueDate, items } = req.body || {};
   if (!clientId) return res.status(400).json({ error: "Client is required" });
   if (!issueDate) return res.status(400).json({ error: "Issue date is required" });
@@ -368,6 +407,16 @@ app.post("/api/invoices", requireAuth, requireDirector, async (req, res) => {
   for (const it of items) {
     if (!it.description?.trim()) return res.status(400).json({ error: "All items need a description" });
     if (!Number.isFinite(Number(it.amount)) || Number(it.amount) <= 0) return res.status(400).json({ error: "All items need a positive amount" });
+  }
+
+  // Employees can only create invoices where every item is assigned to themselves
+  if (req.user.role !== "director") {
+    const ownEmpId = req.user.employeeId;
+    for (const it of items) {
+      if (it.employeeId && it.employeeId !== ownEmpId) {
+        return res.status(403).json({ error: "Employees can only assign line items to themselves" });
+      }
+    }
   }
 
   try {
@@ -485,6 +534,83 @@ app.post("/api/invoices/:id/payments", requireAuth, async (req, res) => {
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error("Payment error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/invoices/:id/amendments
+ * Director-only. Revises an invoice amount up or down, with a mandatory reason.
+ * Recomputes outstanding and status. Logged as an append-only amendment record.
+ * Body: { newAmount, reason }
+ */
+app.post("/api/invoices/:id/amendments", requireAuth, requireDirector, async (req, res) => {
+  const { id: invoiceId } = req.params;
+  const { newAmount, reason } = req.body || {};
+  const newAmt = Math.round(Number(newAmount));
+
+  if (!Number.isFinite(newAmt) || newAmt < 0) {
+    return res.status(400).json({ error: "New amount must be a non-negative number" });
+  }
+  if (!reason || typeof reason !== "string" || !reason.trim()) {
+    return res.status(400).json({ error: "Reason is required for amendments (audit trail)" });
+  }
+  if (reason.trim().length < 3) {
+    return res.status(400).json({ error: "Reason must be at least 3 characters" });
+  }
+
+  try {
+    const result = await withTransaction(async (client) => {
+      // Lock the invoice row to prevent concurrent amendments
+      const inv = await client.query(
+        `SELECT id, amount, paid, outstanding, status, issue_date FROM invoices WHERE id = $1 FOR UPDATE`,
+        [invoiceId]
+      );
+      if (inv.rowCount === 0) throw { status: 404, message: "Invoice not found" };
+
+      const row = inv.rows[0];
+      const previousAmount = Number(row.amount);
+      const paid = Number(row.paid);
+
+      if (newAmt === previousAmount) {
+        throw { status: 400, message: "New amount is the same as the current amount — nothing to amend" };
+      }
+      if (newAmt < paid) {
+        throw { status: 400, message: `New amount (৳${newAmt}) cannot be less than amount already paid (৳${paid})` };
+      }
+
+      const newOutstanding = newAmt - paid;
+      const delta = newAmt - previousAmount;
+
+      // Recompute status with the new amount
+      const ageMs = Date.now() - new Date(row.issue_date).getTime();
+      const days = ageMs / (1000 * 60 * 60 * 24);
+      let newStatus;
+      if (paid >= newAmt) newStatus = "paid";
+      else if (days < 14) newStatus = "sent";
+      else if (days < 60) newStatus = "outstanding";
+      else newStatus = "overdue";
+
+      // Insert amendment record (append-only audit trail)
+      await client.query(
+        `INSERT INTO invoice_amendments (invoice_id, previous_amount, new_amount, delta, reason, amended_by, amended_by_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [invoiceId, previousAmount, newAmt, delta, reason.trim(), req.user.userId, req.user.displayName]
+      );
+
+      // Update the invoice
+      await client.query(
+        `UPDATE invoices SET amount = $1, outstanding = $2, status = $3 WHERE id = $4`,
+        [newAmt, newOutstanding, newStatus, invoiceId]
+      );
+
+      return loadInvoice(client, invoiceId);
+    });
+
+    res.status(201).json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error("Amendment error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

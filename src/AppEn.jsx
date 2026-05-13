@@ -49,6 +49,23 @@ const NOW = new Date();
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatCurrency = (n) => "\u09F3" + Number(n || 0).toLocaleString("en-BD");
+
+// Module-level helper: returns props for a modal-overlay div that only closes the modal
+// when the user clicks (not when they release a text-drag started inside the modal).
+// Tracks the mousedown target on the DOM element itself, so it works without a hook.
+function overlayDismiss(onDismiss) {
+  return {
+    onMouseDown: (e) => {
+      // Mark the element if mousedown happened directly on it
+      e.currentTarget.dataset.downOk = e.target === e.currentTarget ? "1" : "0";
+    },
+    onMouseUp: (e) => {
+      const ok = e.currentTarget.dataset.downOk === "1" && e.target === e.currentTarget;
+      e.currentTarget.dataset.downOk = "0";
+      if (ok) onDismiss();
+    },
+  };
+}
 const formatNumber = (n) => Number(n || 0).toLocaleString("en-BD");
 
 const statusLabel = (status) => ({
@@ -126,7 +143,142 @@ table{width:100%;border-collapse:separate;border-spacing:0}thead th{font-size:10
 .tooltip-wrap{position:relative}.tooltip-wrap:hover .tooltip{opacity:1;transform:translateY(0);pointer-events:auto}.tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px);background:#1d1d1f;color:#fff;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:all .2s ease;z-index:50}
 .empty-state{text-align:center;padding:48px 24px;color:var(--text-tertiary)}.empty-state p{font-size:14px;margin-top:8px}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}.fade-in{animation:fadeIn .4s ease}
+
+/* Invoice line items — responsive grid */
+.line-item-header{display:grid;grid-template-columns:2fr 1.3fr 1fr 0.3fr;gap:8px;margin-bottom:6px;font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;padding:0 4px}
+.line-item-row{display:grid;grid-template-columns:2fr 1.3fr 1fr 0.3fr;gap:8px;margin-bottom:8px;align-items:center}
+.line-item-remove{padding:8px}
+
+/* Page header — title left, actions right (search/buttons) */
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.page-header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d1d1d6;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#aeaeb2}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE & TABLET RESPONSIVE LAYER
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Hamburger menu button — only visible on mobile */
+.mobile-menu-btn{display:none;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface);align-items:center;justify-content:center;cursor:pointer;transition:all var(--transition);flex-shrink:0;padding:0}
+.mobile-menu-btn:active{background:var(--bg);transform:scale(0.96)}
+.mobile-menu-btn svg{width:18px;height:18px;color:var(--text)}
+
+/* Sidebar overlay backdrop on mobile */
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99;animation:fadeIn .2s ease;backdrop-filter:blur(2px)}
+
+/* TABLET (≤ 1024px): tighter spacing, smaller sidebar */
+@media (max-width: 1024px){
+  .sidebar{width:220px}
+  .topbar{padding:0 20px}
+  .content{padding:20px}
+  .stats-grid{gap:12px}
+}
+
+/* MOBILE (≤ 768px): everything stacks, sidebar slides out */
+@media (max-width: 768px){
+  .app{position:relative}
+
+  /* Sidebar slides out from left, overlay style */
+  .sidebar{position:fixed;top:0;left:0;height:100vh;width:280px;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:100;box-shadow:8px 0 32px rgba(0,0,0,.12);background:rgba(255,255,255,.98)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-backdrop.open{display:block}
+  .mobile-menu-btn{display:inline-flex}
+
+  /* Main area takes full width */
+  .main{width:100vw}
+  .topbar{height:54px;padding:0 14px;gap:10px}
+  .topbar-title{font-size:15px;letter-spacing:-.2px}
+  .content{padding:16px 14px;-webkit-overflow-scrolling:touch}
+
+  /* Stat cards: ALWAYS one per row on mobile */
+  .stats-grid{grid-template-columns:1fr !important;gap:10px;margin-bottom:18px}
+  .stat-card{padding:16px 18px}
+  .stat-value{font-size:22px;letter-spacing:-.5px}
+  .stat-label{font-size:10.5px;margin-bottom:6px}
+  .stat-sub{font-size:11px;margin-top:6px}
+
+  /* Two-column grids stack */
+  .grid-2{grid-template-columns:1fr;gap:14px}
+  .form-row{grid-template-columns:1fr;gap:10px}
+
+  /* Cards on mobile */
+  .card{border-radius:12px}
+  .card-header{padding:14px 16px;flex-wrap:wrap;gap:8px}
+  .card-header h3{font-size:14px}
+  .card-body{padding:14px 16px}
+
+  /* Tables get horizontal scroll on mobile so they're readable */
+  .data-table-wrap,.card-body{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{font-size:12px;min-width:520px}
+  table th,table td{padding:10px 8px;white-space:nowrap}
+
+  /* Modals fill the screen on mobile, no centering */
+  .modal-overlay{padding:0;align-items:flex-end}
+  .modal{max-width:100% !important;width:100%;max-height:90vh;border-radius:18px 18px 0 0;animation:slideUp .3s ease}
+  .modal-header{padding:16px 18px}
+  .modal-header h2{font-size:17px}
+  .modal-body{padding:16px 18px}
+
+  /* Forms — bigger touch targets, no zoom on iOS focus */
+  .form-input,.form-select,.form-textarea{font-size:16px;padding:11px 14px;border-radius:10px}
+  .form-label{font-size:12.5px}
+
+  /* Buttons */
+  .btn{font-size:13px;padding:10px 14px;border-radius:10px}
+  .btn-sm{font-size:12px;padding:7px 10px}
+
+  /* Invoice meta grid stacks */
+  .inv-meta{grid-template-columns:1fr;gap:14px;padding:16px}
+
+  /* Sidebar inside the slide-out — make user/buttons more prominent */
+  .sidebar-brand{padding:20px 22px 16px}
+  .sidebar-brand h1{font-size:17px}
+  .sidebar-nav{padding:14px 10px}
+  .nav-item{padding:11px 14px;font-size:14px}
+
+  /* Reconciliation cash/bKash panels stack */
+  .reconcile-grid{grid-template-columns:1fr !important}
+
+  /* Invoice line items: header hides, row becomes a card with labels */
+  .line-item-header{display:none}
+  .line-item-row{grid-template-columns:1fr;gap:10px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border-light);position:relative;margin-bottom:10px}
+  .line-item-row .line-item-remove{position:absolute;top:10px;right:10px;width:32px;height:32px;padding:0 !important}
+
+  /* Force inv-meta to stack even with inline override */
+  .inv-meta[style]{grid-template-columns:1fr !important}
+
+  /* Tabs strip — horizontal scroll if too wide */
+  .tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex-shrink:0}
+
+  /* Page header stacks on mobile, actions go full-width */
+  .page-header{flex-direction:column;align-items:stretch;margin-bottom:18px}
+  .page-header-actions{width:100%;flex-direction:column;gap:8px}
+  .page-header-actions .search-bar{width:100%}
+  .page-header-actions .btn{width:100%;justify-content:center}
+
+  /* Donut chart wrap stacks legend below the chart */
+  .donut-wrap{flex-direction:column;align-items:center;gap:16px}
+  .donut-legend{width:100%}
+
+  /* Mini bar chart can scroll horizontally if needed */
+  .mini-chart{min-width:0}
+
+  /* Login screen — keep readable on small phones */
+  body{font-size:14px}
+}
+
+/* SMALL PHONES (≤ 380px): even tighter */
+@media (max-width: 380px){
+  .topbar{padding:0 10px;gap:6px}
+  .topbar-title{font-size:14px}
+  .topbar-date{display:none}
+  .content{padding:14px 10px}
+  .stat-value{font-size:20px}
+  .modal-header h2{font-size:16px}
+  .btn{padding:9px 12px;font-size:12.5px}
+}
 `;
 
 function DonutChart({ data, size = 140 }) {
@@ -158,10 +310,40 @@ function MiniBarChart({ data, height = 50 }) {
 // ═══════════════════════════════════════════════════════════════
 //  INVOICES PAGE
 // ═══════════════════════════════════════════════════════════════
-function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvoice, setSelectedInvoice, totalRevenue, totalOutstanding, totalOverdue, setPaymentModal, setPaymentAmount }) {
+function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvoice, setSelectedInvoice, totalRevenue, totalOutstanding, totalOverdue, setPaymentModal, setPaymentAmount, currentUser, refreshData, setInvoiceReceiptData }) {
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
   const [createModal, setCreateModal] = useState(false);
+  const [amendModal, setAmendModal] = useState(null); // null | { invoiceId }
+  const [amendForm, setAmendForm] = useState({ newAmount: "", reason: "" });
+  const [amendBusy, setAmendBusy] = useState(false);
+  const isDirector = currentUser?.role === "director";
+
+  const openAmendModal = useCallback((inv) => {
+    setAmendForm({ newAmount: String(inv.amount), reason: "" });
+    setAmendModal({ invoiceId: inv.id });
+  }, []);
+
+  const submitAmendment = useCallback(async () => {
+    if (!amendModal) return;
+    const amt = Number(amendForm.newAmount);
+    if (!Number.isFinite(amt) || amt < 0) { alert("Enter a valid amount."); return; }
+    if (!amendForm.reason.trim() || amendForm.reason.trim().length < 3) { alert("Reason is required (audit trail)."); return; }
+    setAmendBusy(true);
+    try {
+      const updated = await api.amendInvoice(amendModal.invoiceId, amt, amendForm.reason.trim());
+      // Refresh local cache so the detail view re-renders with new amount + new amendment in history
+      setInvoices(prev => prev.map(i => i.id === amendModal.invoiceId ? updated : i));
+      setAmendModal(null);
+      setAmendForm({ newAmount: "", reason: "" });
+      refreshData?.();
+    } catch (err) {
+      alert(err?.message || "Could not amend invoice.");
+    } finally {
+      setAmendBusy(false);
+    }
+  }, [amendModal, amendForm, setInvoices, refreshData]);
+
 
   if (selectedInvoice) {
     const inv = invoices.find(i => i.id === selectedInvoice);
@@ -173,8 +355,9 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
         <button className="btn btn-ghost" onClick={() => setSelectedInvoice(null)} style={{ marginBottom: 20 }}><Icon name="back" size={16} /> Back to Invoices</button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div><h2 style={{ fontSize: 24, fontWeight: 700 }}>{inv.invoiceNo}</h2><p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>{inv.clientName}</p></div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span className={`badge-status badge-${inv.status}`}>{statusLabel(inv.status)}</span>
+            {isDirector && <button className="btn btn-secondary btn-sm" onClick={() => openAmendModal(inv)} title="Revise the invoice amount with audit trail"><Icon name="edit" size={14} /> Amend</button>}
             {inv.status !== "paid" && <button className="btn btn-primary btn-sm" onClick={() => { setPaymentModal(inv.id); setPaymentAmount(""); }}>Record Payment</button>}
           </div>
         </div>
@@ -207,12 +390,153 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
               })}</tbody>
             </table>
             <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-              <div className="inv-total-row"><span>Total Agreed</span><span style={{ fontWeight: 600 }}>{formatCurrency(inv.amount)}</span></div>
+              <div className="inv-total-row">
+                <span>{inv.amendments?.length > 0 ? "Current Total" : "Total Agreed"}</span>
+                <span style={{ fontWeight: 600 }}>{formatCurrency(inv.amount)}</span>
+              </div>
+              {inv.amendments?.length > 0 && (() => {
+                // The earliest amendment's previousAmount IS the original invoice amount
+                const sorted = [...inv.amendments].sort((a, b) => new Date(a.amendedAt) - new Date(b.amendedAt));
+                const originalAmount = sorted[0].previousAmount;
+                const delta = inv.amount - originalAmount;
+                return (
+                  <div className="inv-total-row" style={{ fontSize: 12, color: "var(--text-tertiary)", borderTop: "1px dashed var(--border-light)" }}>
+                    <span>Originally <span style={{ textDecoration: "line-through" }}>{formatCurrency(originalAmount)}</span> · revised by {delta >= 0 ? "+" : ""}{formatCurrency(delta)}</span>
+                    <span></span>
+                  </div>
+                );
+              })()}
               <div className="inv-total-row"><span>Paid</span><span style={{ fontWeight: 600, color: "var(--green)" }}>-{formatCurrency(inv.paid)}</span></div>
               <div className="inv-total-row grand"><span>Balance Due</span><span>{formatCurrency(inv.outstanding)}</span></div>
             </div>
           </div>
         </div>
+
+        {inv.amendments?.length > 0 && (
+          <div className="card" style={{ marginTop: 24 }}>
+            <div className="card-header">
+              <h3>Amendment History</h3>
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{inv.amendments.length} {inv.amendments.length === 1 ? "revision" : "revisions"} · audit trail (append-only)</span>
+            </div>
+            <div className="card-body">
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {inv.amendments.map((a) => {
+                  const up = a.delta > 0;
+                  const dateStr = new Date(a.amendedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <div key={a.id} style={{ display: "flex", gap: 12, padding: 12, background: "var(--bg)", borderRadius: 10, borderLeft: `3px solid ${up ? "var(--orange)" : "var(--green)"}` }}>
+                      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 8, background: up ? "rgba(255,149,0,0.12)" : "rgba(30,138,58,0.12)", color: up ? "var(--orange)" : "var(--green)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>
+                        {up ? "▲" : "▼"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                            {formatCurrency(a.previousAmount)} → <span style={{ color: "var(--accent)" }}>{formatCurrency(a.newAmount)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: up ? "var(--orange)" : "var(--green)", marginLeft: 8 }}>
+                              ({up ? "+" : ""}{formatCurrency(a.delta)})
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{dateStr}</div>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 4, lineHeight: 1.45 }}>{a.reason}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>by <strong style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{a.amendedByName}</strong></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {amendModal && (() => {
+          const aInv = invoices.find(i => i.id === amendModal.invoiceId);
+          if (!aInv) return null;
+          const currentAmount = aInv.amount;
+          const newAmt = Number(amendForm.newAmount);
+          const delta = Number.isFinite(newAmt) ? newAmt - currentAmount : 0;
+          const newOutstanding = Number.isFinite(newAmt) ? Math.max(0, newAmt - aInv.paid) : aInv.outstanding;
+          const belowPaid = Number.isFinite(newAmt) && newAmt < aInv.paid;
+          return (
+            <div className="modal-overlay" {...overlayDismiss(() => setAmendModal(null))}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div className="modal-header">
+                  <div>
+                    <h2 style={{ marginBottom: 2 }}>Amend Invoice</h2>
+                    <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>{aInv.invoiceNo} · {aInv.clientName}</p>
+                  </div>
+                  <button className="modal-close" onClick={() => setAmendModal(null)}><Icon name="x" size={16} /></button>
+                </div>
+                <div className="modal-body">
+                  <div style={{ background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "var(--accent)", lineHeight: 1.5 }}>
+                    <strong>Audit trail:</strong> Every amendment is permanently recorded with the reason, the new amount, the time, and your name. Past amendments cannot be edited or deleted.
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <label className="form-label">Current Amount</label>
+                      <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(currentAmount)}</div>
+                    </div>
+                    <div>
+                      <label className="form-label">Already Paid</label>
+                      <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(aInv.paid)}</div>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">New Amount (BDT) <span style={{ color: "var(--red)" }}>*</span></label>
+                    <input
+                      className="form-input"
+                      type="number"
+                      placeholder="e.g. 450000"
+                      value={amendForm.newAmount}
+                      onChange={e => setAmendForm(p => ({ ...p, newAmount: e.target.value }))}
+                      style={{ fontSize: 18, fontWeight: 600, color: belowPaid ? "var(--red)" : "var(--text)" }}
+                      autoFocus
+                    />
+                    {belowPaid && <div style={{ fontSize: 11.5, color: "var(--red)", marginTop: 6 }}>Cannot revise below the amount already paid ({formatCurrency(aInv.paid)})</div>}
+                  </div>
+
+                  {Number.isFinite(newAmt) && newAmt > 0 && newAmt !== currentAmount && !belowPaid && (
+                    <div style={{ background: "var(--bg)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", color: "var(--text-secondary)" }}>
+                        <span>Change</span>
+                        <span style={{ fontWeight: 700, color: delta >= 0 ? "var(--orange)" : "var(--green)" }}>{delta >= 0 ? "+" : ""}{formatCurrency(delta)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        <span>New balance due</span>
+                        <span style={{ fontWeight: 700 }}>{formatCurrency(newOutstanding)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">Reason <span style={{ color: "var(--red)" }}>*</span></label>
+                    <textarea
+                      className="form-textarea"
+                      placeholder="e.g. Client renegotiated lower fee; scope reduced to single jurisdiction."
+                      value={amendForm.reason}
+                      onChange={e => setAmendForm(p => ({ ...p, reason: e.target.value }))}
+                      rows={3}
+                      style={{ resize: "vertical", minHeight: 70 }}
+                    />
+                    <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>This will appear in the permanent audit trail for this invoice.</div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                    <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setAmendModal(null)} disabled={amendBusy}>Cancel</button>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 1, justifyContent: "center", padding: "10px 0", opacity: amendBusy ? 0.7 : 1 }}
+                      onClick={submitAmendment}
+                      disabled={amendBusy || belowPaid || !Number.isFinite(newAmt) || newAmt === currentAmount || amendForm.reason.trim().length < 3}
+                    >{amendBusy ? "Saving…" : "Save Amendment"}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -228,9 +552,9 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
 
   return (
     <div className="fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div className="page-header">
         <div><h2 style={{ fontSize: 22, fontWeight: 700 }}>Invoices</h2><p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Manage invoices, payments, and outstanding balances</p></div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="page-header-actions">
           <div className="search-bar"><Icon name="search" size={16} /><input placeholder="Search invoices..." value={search} onChange={e => setSearch(e.target.value)} /></div>
           <button className="btn btn-primary" onClick={() => setCreateModal(true)}><Icon name="plus" size={16} /> New Invoice</button>
         </div>
@@ -256,20 +580,136 @@ function InvoicesPage({ invoices, setInvoices, clients, setClients, selectedInvo
           ))}</tbody>
         </table>
       </div></div>
-      {createModal && <InvoiceModal clients={clients} setClients={setClients} onClose={() => setCreateModal(false)} onSave={(inv) => { setInvoices(prev => [inv, ...prev]); setCreateModal(false); }} />}
+      {createModal && <InvoiceModal clients={clients} setClients={setClients} currentUser={currentUser} onClose={() => setCreateModal(false)} onSave={(inv) => {
+        setInvoices(prev => [inv, ...prev]);
+        setCreateModal(false);
+        refreshData?.();
+        // Build the invoice receipt payload — same idea as a payment receipt but for invoice issuance.
+        const client = clients.find(c => c.id === inv.clientId);
+        const now = new Date();
+        setInvoiceReceiptData?.({
+          invoiceNo: inv.invoiceNo,
+          issueDate: inv.issueDate,
+          issuedAt: now.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+          preparedBy: currentUser?.displayName || "",
+          preparedByRole: currentUser?.displayRole || "",
+          client: client ? {
+            name: client.name,
+            address: client.address,
+            contact: client.contact,
+            email: client.email,
+            phone: client.phone,
+          } : { name: inv.clientName, address: "", contact: "", email: "", phone: "" },
+          items: inv.items || [],
+          amount: inv.amount,
+          status: inv.status,
+        });
+      }} />}
+
+      {amendModal && (() => {
+        const inv = invoices.find(i => i.id === amendModal.invoiceId);
+        if (!inv) return null;
+        const currentAmount = inv.amount;
+        const newAmt = Number(amendForm.newAmount);
+        const delta = Number.isFinite(newAmt) ? newAmt - currentAmount : 0;
+        const newOutstanding = Number.isFinite(newAmt) ? Math.max(0, newAmt - inv.paid) : inv.outstanding;
+        const belowPaid = Number.isFinite(newAmt) && newAmt < inv.paid;
+        return (
+          <div className="modal-overlay" {...overlayDismiss(() => setAmendModal(null))}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+              <div className="modal-header">
+                <div>
+                  <h2 style={{ marginBottom: 2 }}>Amend Invoice</h2>
+                  <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>{inv.invoiceNo} · {inv.clientName}</p>
+                </div>
+                <button className="modal-close" onClick={() => setAmendModal(null)}><Icon name="x" size={16} /></button>
+              </div>
+              <div className="modal-body">
+                <div style={{ background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "var(--accent)", lineHeight: 1.5 }}>
+                  <strong>Audit trail:</strong> Every amendment is permanently recorded with the reason, the new amount, the time, and your name. Past amendments cannot be edited or deleted.
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label className="form-label">Current Amount</label>
+                    <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(currentAmount)}</div>
+                  </div>
+                  <div>
+                    <label className="form-label">Already Paid</label>
+                    <div className="form-input" style={{ background: "var(--bg)", color: "var(--text-secondary)", cursor: "not-allowed", fontWeight: 600 }}>{formatCurrency(inv.paid)}</div>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">New Amount (BDT) <span style={{ color: "var(--red)" }}>*</span></label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    placeholder="e.g. 450000"
+                    value={amendForm.newAmount}
+                    onChange={e => setAmendForm(p => ({ ...p, newAmount: e.target.value }))}
+                    style={{ fontSize: 18, fontWeight: 600, color: belowPaid ? "var(--red)" : "var(--text)" }}
+                    autoFocus
+                  />
+                  {belowPaid && <div style={{ fontSize: 11.5, color: "var(--red)", marginTop: 6 }}>Cannot revise below the amount already paid ({formatCurrency(inv.paid)})</div>}
+                </div>
+
+                {Number.isFinite(newAmt) && newAmt > 0 && newAmt !== currentAmount && !belowPaid && (
+                  <div style={{ background: "var(--bg)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", color: "var(--text-secondary)" }}>
+                      <span>Change</span>
+                      <span style={{ fontWeight: 700, color: delta >= 0 ? "var(--orange)" : "var(--green)" }}>{delta >= 0 ? "+" : ""}{formatCurrency(delta)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                      <span>New balance due</span>
+                      <span style={{ fontWeight: 700 }}>{formatCurrency(newOutstanding)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Reason <span style={{ color: "var(--red)" }}>*</span></label>
+                  <textarea
+                    className="form-textarea"
+                    placeholder="e.g. Client renegotiated lower fee; scope reduced to single jurisdiction."
+                    value={amendForm.reason}
+                    onChange={e => setAmendForm(p => ({ ...p, reason: e.target.value }))}
+                    rows={3}
+                    style={{ resize: "vertical", minHeight: 70 }}
+                  />
+                  <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>This will appear in the permanent audit trail for this invoice.</div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                  <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setAmendModal(null)} disabled={amendBusy}>Cancel</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, justifyContent: "center", padding: "10px 0", opacity: amendBusy ? 0.7 : 1 }}
+                    onClick={submitAmendment}
+                    disabled={amendBusy || belowPaid || !Number.isFinite(newAmt) || newAmt === currentAmount || amendForm.reason.trim().length < 3}
+                  >{amendBusy ? "Saving…" : "Save Amendment"}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function InvoiceModal({ clients, setClients, onClose, onSave }) {
+function InvoiceModal({ clients, setClients, currentUser, onClose, onSave }) {
+  const isDirector = currentUser?.role === "director";
   const billableEmployees = EMPLOYEES.filter(e => e.category !== "support");
+  // For employees: their own ID is the only valid choice
+  const defaultEmpId = isDirector ? (billableEmployees[0]?.id || "") : currentUser.employeeId;
   const [clientId, setClientId] = useState(clients[0]?.id || "");
   const [issueDate, setIssueDate] = useState(NOW.toISOString().split("T")[0]);
-  const [items, setItems] = useState([{ description: "", employeeId: billableEmployees[0]?.id || "", amount: 0 }]);
+  const [items, setItems] = useState([{ description: "", employeeId: defaultEmpId, amount: 0 }]);
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", address: "", contact: "", email: "", phone: "" });
 
-  const addItem = () => setItems(prev => [...prev, { description: "", employeeId: billableEmployees[0]?.id || "", amount: 0 }]);
+  const addItem = () => setItems(prev => [...prev, { description: "", employeeId: defaultEmpId, amount: 0 }]);
   const updateItem = (idx, field, value) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: field === "amount" ? Number(value) || 0 : value } : it));
   const removeItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
 
@@ -324,8 +764,10 @@ function InvoiceModal({ clients, setClients, onClose, onSave }) {
     }
   };
 
+  const dismiss = overlayDismiss(onClose);
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" {...dismiss}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
         <div className="modal-header"><h2>Create Invoice</h2><button className="modal-close" onClick={onClose}><Icon name="x" size={16} /></button></div>
         <div className="modal-body">
@@ -352,17 +794,17 @@ function InvoiceModal({ clients, setClients, onClose, onSave }) {
 
           <div style={{ marginBottom: 12 }}>
             <label className="form-label">Line Items</label>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 0.3fr", gap: 8, marginBottom: 6, fontSize: 10.5, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.5, padding: "0 4px" }}>
+            <div className="line-item-header">
               <span>Description</span><span>Handled By</span><span>Amount (BDT)</span><span></span>
             </div>
             {items.map((item, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 0.3fr", gap: 8, marginBottom: 8 }}>
+              <div key={i} className="line-item-row">
                 <input className="form-input" placeholder="e.g. Contract drafting for Q2" value={item.description} onChange={e => updateItem(i, "description", e.target.value)} />
-                <select className="form-select" value={item.employeeId} onChange={e => updateItem(i, "employeeId", e.target.value)}>
-                  {billableEmployees.map(emp => <option key={emp.id} value={emp.id}>{emp.shortName}</option>)}
+                <select className="form-select" value={item.employeeId} onChange={e => updateItem(i, "employeeId", e.target.value)} disabled={!isDirector} title={isDirector ? "" : "Employees can only assign work to themselves"}>
+                  {(isDirector ? billableEmployees : billableEmployees.filter(emp => emp.id === currentUser.employeeId)).map(emp => <option key={emp.id} value={emp.id}>{emp.shortName}</option>)}
                 </select>
                 <input className="form-input" type="number" placeholder="0" value={item.amount || ""} onChange={e => updateItem(i, "amount", e.target.value)} />
-                <button className="btn btn-secondary btn-sm" onClick={() => removeItem(i)} style={{ padding: "8px" }} disabled={items.length === 1}><Icon name="x" size={14} /></button>
+                <button className="btn btn-secondary btn-sm line-item-remove" onClick={() => removeItem(i)} disabled={items.length === 1}><Icon name="x" size={14} /></button>
               </div>
             ))}
           </div>
@@ -378,7 +820,7 @@ function InvoiceModal({ clients, setClients, onClose, onSave }) {
 
       {/* Add Client modal */}
       {addClientOpen && (
-        <div className="modal-overlay" onClick={() => setAddClientOpen(false)} style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" {...overlayDismiss(() => setAddClientOpen(false))} style={{ zIndex: 1100 }}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="modal-header"><h2>Add New Client</h2><button className="modal-close" onClick={() => setAddClientOpen(false)}><Icon name="x" size={16} /></button></div>
             <div className="modal-body">
@@ -694,6 +1136,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const [invoices, setInvoices] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [page, setPage] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [search, setSearch] = useState("");
@@ -701,9 +1144,23 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [receiptData, setReceiptData] = useState(null);
+  const [invoiceReceiptData, setInvoiceReceiptData] = useState(null);
   const [clientModal, setClientModal] = useState(null); // null | { mode: "add" } | { mode: "edit", clientId }
   const [clientForm, setClientForm] = useState({ name: "", address: "", contact: "", email: "", phone: "" });
-  const [selectedAnalyticsDate, setSelectedAnalyticsDate] = useState(NOW.toISOString().split("T")[0]);
+  const [selectedAnalyticsDate, setSelectedAnalyticsDate] = useState(() => {
+    const d = NOW;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  });
+  // Time-range for Analytics page (1, 3, 6, 9, or 12 months)
+  const [analyticsMonths, setAnalyticsMonths] = useState(6);
+  // Reconciliation date (separate from selectedAnalyticsDate so the chart and tool can be independent)
+  const [reconcileDate, setReconcileDate] = useState(() => {
+    const d = NOW;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  });
+  // Manual cash-in-hand count (per session — not persisted)
+  const [countedCash, setCountedCash] = useState("");
+  const [countedBkash, setCountedBkash] = useState("");
 
   // Refresh data from the API. Silent unless an error occurs.
   const refreshData = useCallback(async () => {
@@ -748,7 +1205,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     role: currentUser.displayRole,
   }), [currentUser]);
 
-  const navigate = useCallback((pg) => { setPage(pg); setSelectedEmployee(null); setSelectedInvoice(null); setSearch(""); }, []);
+  const navigate = useCallback((pg) => { setPage(pg); setSelectedEmployee(null); setSelectedInvoice(null); setSearch(""); setSidebarOpen(false); }, []);
 
   const currentMonth = NOW.getMonth();
   const currentYear = NOW.getFullYear();
@@ -765,9 +1222,10 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   const totalOverdue = useMemo(() => visibleInvoices.filter(i => i.status === "overdue").reduce((s, i) => s + i.outstanding, 0), [visibleInvoices]);
   const overdueCount = useMemo(() => visibleInvoices.filter(i => i.status === "overdue").length, [visibleInvoices]);
 
-  const getEmployeeMonthlyData = useCallback((empId) => {
+  // Build N-month aggregation for a single employee. Default 6 months for back-compat.
+  const getEmployeeMonthlyData = useCallback((empId, monthsBack = 6) => {
     const result = [];
-    for (let m = 5; m >= 0; m--) {
+    for (let m = monthsBack - 1; m >= 0; m--) {
       const d = new Date(NOW.getFullYear(), NOW.getMonth() - m, 1);
       let count = 0;
       let revenue = 0;
@@ -790,9 +1248,10 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     return result;
   }, [invoices]);
 
-  const getMonthlyRevenueData = useMemo(() => {
+  // Build N-month firm-wide revenue trend. Default 6 months.
+  const buildMonthlyRevenueData = useCallback((monthsBack = 6) => {
     const result = [];
-    for (let m = 5; m >= 0; m--) {
+    for (let m = monthsBack - 1; m >= 0; m--) {
       const d = new Date(NOW.getFullYear(), NOW.getMonth() - m, 1);
       result.push({
         label: MONTHS[d.getMonth()],
@@ -802,6 +1261,9 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     }
     return result;
   }, [visibleInvoices]);
+
+  // Dashboard's revenue trend is fixed at 6 months
+  const getMonthlyRevenueData = useMemo(() => buildMonthlyRevenueData(6), [buildMonthlyRevenueData]);
 
   const recordPayment = useCallback(async (invoiceId, amount, method) => {
     try {
@@ -929,13 +1391,13 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
           <div className="card-body">
             <div className="donut-wrap">
               <DonutChart data={[
-                { value: visibleInvoices.filter(i => i.status === "paid").reduce((s,i) => s + i.paid, 0), color: "var(--green)" },
-                { value: totalOutstanding - totalOverdue, color: "var(--orange)" },
+                { value: totalRevenue, color: "var(--green)" },
+                { value: Math.max(0, totalOutstanding - totalOverdue), color: "var(--orange)" },
                 { value: totalOverdue, color: "var(--red)" },
               ]} size={130} />
               <div className="donut-legend">
-                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--green)" }} /><div><div style={{ fontWeight: 600 }}>Paid</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(visibleInvoices.filter(i => i.status === "paid").reduce((s,i) => s + i.paid, 0))}</div></div></div>
-                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--orange)" }} /><div><div style={{ fontWeight: 600 }}>Outstanding</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(totalOutstanding - totalOverdue)}</div></div></div>
+                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--green)" }} /><div><div style={{ fontWeight: 600 }}>Paid</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(totalRevenue)}</div></div></div>
+                <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--orange)" }} /><div><div style={{ fontWeight: 600 }}>Outstanding</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(Math.max(0, totalOutstanding - totalOverdue))}</div></div></div>
                 <div className="donut-legend-item"><div className="donut-dot" style={{ background: "var(--red)" }} /><div><div style={{ fontWeight: 600 }}>Overdue</div><div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{formatCurrency(totalOverdue)}</div></div></div>
               </div>
             </div>
@@ -1095,9 +1557,11 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     const filtered = EMPLOYEES.filter(e => e.name.toLowerCase().includes(search.toLowerCase()) || e.role.toLowerCase().includes(search.toLowerCase()));
     return (
       <div className="fade-in">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div className="page-header">
           <div><h2 style={{ fontSize: 22, fontWeight: 700 }}>Team Members</h2><p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{formatNumber(EMPLOYEES.length)} team members · {formatNumber(EMPLOYEES.filter(e => e.category !== "support").length)} fee earners</p></div>
-          <div className="search-bar"><Icon name="search" size={16} /><input placeholder="Search team..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+          <div className="page-header-actions">
+            <div className="search-bar"><Icon name="search" size={16} /><input placeholder="Search team..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+          </div>
         </div>
         <div className="card">
           <div className="card-body" style={{ padding: "0 24px" }}>
@@ -1134,14 +1598,16 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
   // ── CLIENTS ──
   const renderClients = () => (
     <div className="fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div className="page-header">
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700 }}>Clients</h2>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{formatNumber(clients.length)} active clients</p>
         </div>
-        <button className="btn btn-primary" onClick={openAddClient}>
-          <Icon name="plus" size={14} /> Add Client
-        </button>
+        <div className="page-header-actions">
+          <button className="btn btn-primary" onClick={openAddClient}>
+            <Icon name="plus" size={14} /> Add Client
+          </button>
+        </div>
       </div>
       <div className="card"><div className="card-body" style={{ padding: "0 24px" }}>
         <table>
@@ -1172,8 +1638,16 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
 
   // ── ANALYTICS ──
   const renderAnalytics = () => {
+    // Compute the cutoff date for the Analytics window (N months back, inclusive of current month)
+    const windowStart = new Date(NOW.getFullYear(), NOW.getMonth() - (analyticsMonths - 1), 1);
+    const inWindow = (inv) => {
+      const d = new Date(inv.year, inv.month, 1);
+      return d >= windowStart;
+    };
+    const windowedInvoices = visibleInvoices.filter(inWindow);
+
     const clientRevenue = {};
-    visibleInvoices.forEach(inv => {
+    windowedInvoices.forEach(inv => {
       if (!clientRevenue[inv.clientId]) clientRevenue[inv.clientId] = { name: inv.clientName, paid: 0, outstanding: 0, total: 0 };
       clientRevenue[inv.clientId].paid += inv.paid;
       clientRevenue[inv.clientId].outstanding += inv.outstanding;
@@ -1182,11 +1656,15 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     const clientData = Object.values(clientRevenue).sort((a,b) => b.total - a.total);
 
     // Build last 7 days of payments split by method
+    // IMPORTANT: format dates from local components, NOT via toISOString() which converts to UTC.
+    // For users in non-UTC timezones (e.g. Bangladesh UTC+6), midnight local time becomes the
+    // previous date in UTC, so toISOString() would silently shift "today" by one day.
+    const formatDateLocal = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     const dailyPayments = [];
     for (let d = 6; d >= 0; d--) {
       const day = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - d);
-      const dayStr = day.toISOString().split("T")[0];
+      const dayStr = formatDateLocal(day);
       let cash = 0, bkash = 0;
       visibleInvoices.forEach(inv => {
         (inv.payments || []).forEach(p => {
@@ -1211,21 +1689,244 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
 
     // Director sees ranking of all fee earners; employee sees only themselves
     const empData = (isDirector ? EMPLOYEES.filter(e => e.category !== "support") : EMPLOYEES.filter(e => e.id === currentUser.employeeId)).map(emp => {
-      const data = getEmployeeMonthlyData(emp.id);
+      const data = getEmployeeMonthlyData(emp.id, analyticsMonths);
       return { emp, totalRev: data.reduce((s,d) => s + d.revenue, 0), totalCount: data.reduce((s,d) => s + d.count, 0) };
     }).sort((a,b) => b.totalRev - a.totalRev);
 
-    const totalInvoiced = visibleInvoices.reduce((s, i) => s + i.amount, 0);
-    const collectionRate = totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0;
+    const windowedRevenue = windowedInvoices.reduce((s, i) => s + i.paid, 0);
+    const windowedInvoiced = windowedInvoices.reduce((s, i) => s + i.amount, 0);
+    const collectionRate = windowedInvoiced > 0 ? Math.round((windowedRevenue / windowedInvoiced) * 100) : 0;
+
+    // Daily reconciliation data — payments recorded by the user on the selected reconcile date.
+    // For director: per-employee breakdown of who collected what.
+    // For employees: their own collections to compare against cash in hand.
+    const reconcileData = (() => {
+      const all = [];
+      invoices.forEach(inv => {
+        (inv.payments || []).forEach(p => {
+          if (p.dateOnly === reconcileDate) {
+            all.push({ ...p, invoiceNo: inv.invoiceNo, clientName: inv.clientName });
+          }
+        });
+      });
+      return all;
+    })();
+    // Group by recordedBy for the director's view
+    const reconcileByReceiver = (() => {
+      const map = {};
+      reconcileData.forEach(p => {
+        const name = p.recordedBy || "Unknown";
+        if (!map[name]) map[name] = { name, cash: 0, bkash: 0, total: 0, count: 0 };
+        if (p.method === "bkash") map[name].bkash += p.amount;
+        else map[name].cash += p.amount;
+        map[name].total += p.amount;
+        map[name].count += 1;
+      });
+      return Object.values(map).sort((a, b) => b.total - a.total);
+    })();
+    // For employees: only payments they recorded
+    const myReconcile = reconcileData.filter(p => p.recordedBy === userInfo.name);
+    const mySystemCash = myReconcile.filter(p => p.method !== "bkash").reduce((s, p) => s + p.amount, 0);
+    const mySystemBkash = myReconcile.filter(p => p.method === "bkash").reduce((s, p) => s + p.amount, 0);
+    const cashCount = parseFloat(countedCash) || 0;
+    const bkashCount = parseFloat(countedBkash) || 0;
+    const cashVariance = cashCount - mySystemCash;
+    const bkashVariance = bkashCount - mySystemBkash;
+    const friendlyDate = (() => {
+      const d = new Date(reconcileDate + "T00:00:00");
+      return d.toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    })();
 
     return (
       <div className="fade-in">
-        <div style={{ marginBottom: 28 }}><h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.8 }}>Analytics</h2><p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>{isDirector ? "Firm-wide performance insights — Last 6 months" : "Your performance insights — Last 6 months"}</p></div>
+        <div style={{ marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.8 }}>Analytics</h2>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>
+              {isDirector ? "Firm-wide performance insights" : "Your performance insights"} — Last {analyticsMonths} {analyticsMonths === 1 ? "month" : "months"}
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>Time range:</label>
+            <select
+              className="form-select"
+              value={analyticsMonths}
+              onChange={e => setAnalyticsMonths(Number(e.target.value))}
+              style={{ minWidth: 160, fontSize: 13, fontWeight: 600 }}
+            >
+              <option value={1}>Last 1 month</option>
+              <option value={3}>Last 3 months</option>
+              <option value={6}>Last 6 months</option>
+              <option value={9}>Last 9 months</option>
+              <option value={12}>Last 12 months</option>
+            </select>
+          </div>
+        </div>
 
         <div className="stats-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-          <div className="stat-card"><div className="stat-label">Revenue Collected (6M)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--green)" }}>{formatCurrency(totalRevenue)}</div></div>
-          <div className="stat-card"><div className="stat-label">Total Invoiced (6M)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--accent)" }}>{formatCurrency(totalInvoiced)}</div></div>
+          <div className="stat-card"><div className="stat-label">Revenue Collected ({analyticsMonths}M)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--green)" }}>{formatCurrency(windowedRevenue)}</div></div>
+          <div className="stat-card"><div className="stat-label">Total Invoiced ({analyticsMonths}M)</div><div className="stat-value" style={{ fontSize: 22, color: "var(--accent)" }}>{formatCurrency(windowedInvoiced)}</div></div>
           <div className="stat-card"><div className="stat-label">Collection Rate</div><div className="stat-value" style={{ fontSize: 22, color: collectionRate >= 70 ? "var(--green)" : collectionRate >= 50 ? "var(--orange)" : "var(--red)" }}>{formatNumber(collectionRate)}%</div></div>
+        </div>
+
+        {/* ─── Daily Reconciliation ─── */}
+        <div className="card" style={{ marginBottom: 24 }}>
+          <div className="card-header" style={{ flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h3>{isDirector ? "Daily Collections — Per Employee" : "Daily Reconciliation"}</h3>
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{friendlyDate}</span>
+            </div>
+            <input
+              type="date"
+              className="form-input"
+              value={reconcileDate}
+              onChange={e => setReconcileDate(e.target.value)}
+              style={{ maxWidth: 180, fontSize: 13 }}
+            />
+          </div>
+          <div className="card-body">
+            {isDirector ? (
+              // ─── DIRECTOR: per-employee breakdown ───
+              reconcileByReceiver.length === 0 ? (
+                <div className="empty-state"><p>No payments recorded on {friendlyDate}</p></div>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Recorded By</th>
+                      <th style={{ textAlign: "right" }}>Cash</th>
+                      <th style={{ textAlign: "right" }}>bKash</th>
+                      <th style={{ textAlign: "right" }}>Total</th>
+                      <th style={{ textAlign: "right" }}>Transactions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconcileByReceiver.map(r => (
+                      <tr key={r.name}>
+                        <td style={{ fontWeight: 600 }}>{r.name}</td>
+                        <td style={{ textAlign: "right" }}>{formatCurrency(r.cash)}</td>
+                        <td style={{ textAlign: "right", color: "#E2136E" }}>{formatCurrency(r.bkash)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{formatCurrency(r.total)}</td>
+                        <td style={{ textAlign: "right", color: "var(--text-tertiary)" }}>{formatNumber(r.count)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700, background: "var(--bg)" }}>
+                      <td>Firm Total</td>
+                      <td style={{ textAlign: "right" }}>{formatCurrency(reconcileByReceiver.reduce((s, r) => s + r.cash, 0))}</td>
+                      <td style={{ textAlign: "right", color: "#E2136E" }}>{formatCurrency(reconcileByReceiver.reduce((s, r) => s + r.bkash, 0))}</td>
+                      <td style={{ textAlign: "right" }}>{formatCurrency(reconcileByReceiver.reduce((s, r) => s + r.total, 0))}</td>
+                      <td style={{ textAlign: "right" }}>{formatNumber(reconcileByReceiver.reduce((s, r) => s + r.count, 0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )
+            ) : (
+              // ─── EMPLOYEE: personal reconciliation tool ───
+              <div>
+                <div className="reconcile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 20 }}>
+                  {/* CASH PANEL */}
+                  <div style={{ padding: 16, background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--accent)", marginBottom: 12 }}>Cash</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>System total (recorded)</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{formatCurrency(mySystemCash)}</span>
+                    </div>
+                    <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <label style={{ fontSize: 12.5, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>Cash in hand (counted)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="Enter your physical cash count"
+                        value={countedCash}
+                        onChange={e => setCountedCash(e.target.value)}
+                        style={{ fontSize: 14 }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", alignItems: "center" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 600 }}>Variance</span>
+                      <span style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: countedCash === "" ? "var(--text-tertiary)"
+                              : cashVariance === 0 ? "var(--green)"
+                              : "var(--red)",
+                      }}>
+                        {countedCash === "" ? "—" : (cashVariance === 0 ? `✓ ${formatCurrency(0)}` : `${cashVariance > 0 ? "+" : ""}${formatCurrency(cashVariance)}`)}
+                      </span>
+                    </div>
+                  </div>
+                  {/* BKASH PANEL */}
+                  <div style={{ padding: 16, background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#E2136E", marginBottom: 12 }}>bKash</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>System total (recorded)</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{formatCurrency(mySystemBkash)}</span>
+                    </div>
+                    <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <label style={{ fontSize: 12.5, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>bKash balance (counted)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="Enter your bKash balance"
+                        value={countedBkash}
+                        onChange={e => setCountedBkash(e.target.value)}
+                        style={{ fontSize: 14 }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", alignItems: "center" }}>
+                      <span style={{ fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 600 }}>Variance</span>
+                      <span style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: countedBkash === "" ? "var(--text-tertiary)"
+                              : bkashVariance === 0 ? "var(--green)"
+                              : "var(--red)",
+                      }}>
+                        {countedBkash === "" ? "—" : (bkashVariance === 0 ? `✓ ${formatCurrency(0)}` : `${bkashVariance > 0 ? "+" : ""}${formatCurrency(bkashVariance)}`)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed transaction list */}
+                {myReconcile.length === 0 ? (
+                  <div className="empty-state" style={{ marginTop: 8 }}>
+                    <p>No payments recorded by you on {friendlyDate}</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--text-tertiary)", marginBottom: 8 }}>Transactions you recorded ({myReconcile.length})</div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Invoice</th>
+                          <th>Client</th>
+                          <th>Method</th>
+                          <th style={{ textAlign: "right" }}>Amount</th>
+                          <th>Receipt</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myReconcile.map(p => (
+                          <tr key={p.id}>
+                            <td style={{ fontWeight: 600 }}>{p.invoiceNo}</td>
+                            <td>{p.clientName}</td>
+                            <td><span className="badge-status" style={{ background: p.method === "bkash" ? "rgba(226,19,110,0.1)" : "var(--accent-light)", color: p.method === "bkash" ? "#E2136E" : "var(--accent)" }}>{p.method === "bkash" ? "bKash" : "Cash"}</span></td>
+                            <td style={{ textAlign: "right", fontWeight: 700 }}>{formatCurrency(p.amount)}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 11.5, color: "var(--text-tertiary)" }}>{p.receiptNo}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 16, padding: "12px 14px", background: "var(--accent-light)", borderRadius: 10, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <strong style={{ color: "var(--accent)" }}>How to reconcile:</strong> Count your physical cash and check your bKash balance, then enter both above. The variance shows the difference between your record and the system. A variance of zero means everything matches; a non-zero variance means a payment may not have been recorded, or you may have spent some of the collected money.
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Daily Payments Received — Last 7 Days */}
@@ -1447,7 +2148,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
         </div>
 
         <div className="card">
-          <div className="card-header"><h3>{isDirector ? "Employee Performance Ranking" : "Your Performance"}</h3><span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Revenue brought in (6M)</span></div>
+          <div className="card-header"><h3>{isDirector ? "Employee Performance Ranking" : "Your Performance"}</h3><span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Revenue brought in ({analyticsMonths}M)</span></div>
           <div className="card-body" style={{ paddingTop: 8 }}>
             {empData.map(({ emp, totalRev, totalCount }, i) => {
               const avgPerCase = totalCount > 0 ? Math.round(totalRev / totalCount) : 0;
@@ -1486,7 +2187,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     switch (page) {
       case "dashboard": return renderDashboard();
       case "employees": return renderEmployees();
-      case "invoices": return <InvoicesPage invoices={visibleInvoices} setInvoices={setInvoices} clients={clients} setClients={setClients} selectedInvoice={selectedInvoice} setSelectedInvoice={setSelectedInvoice} totalRevenue={totalRevenue} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} />;
+      case "invoices": return <InvoicesPage invoices={visibleInvoices} setInvoices={setInvoices} clients={clients} setClients={setClients} selectedInvoice={selectedInvoice} setSelectedInvoice={setSelectedInvoice} totalRevenue={totalRevenue} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} currentUser={currentUser} refreshData={refreshData} setInvoiceReceiptData={setInvoiceReceiptData} />;
       case "outstanding": return <OutstandingPage invoices={visibleInvoices} clients={clients} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} overdueCount={overdueCount} setPaymentModal={setPaymentModal} setPaymentAmount={setPaymentAmount} setSelectedInvoice={setSelectedInvoice} navigateTo={(pg) => setPage(pg)} />;
       case "clients": return renderClients();
       case "analytics": return renderAnalytics();
@@ -1498,7 +2199,8 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
     <>
       <style>{CSS}</style>
       <div className="app">
-        <aside className="sidebar">
+        <div className={`sidebar-backdrop ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+        <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-brand"><h1>Ruhul Quddus<br/>& Jurists</h1><p>Practice Management</p></div>
           <nav className="sidebar-nav">
             <div className="nav-section">
@@ -1571,12 +2273,24 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
           </div>
         </aside>
         <div className="main">
-          <header className="topbar"><h2 className="topbar-title">{pageTitle[page]}</h2><span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{MONTHS[currentMonth]} {currentYear}</span></header>
+          <header className="topbar">
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+              <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </button>
+              <h2 className="topbar-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pageTitle[page]}</h2>
+            </div>
+            <span className="topbar-date" style={{ fontSize: 12, color: "var(--text-tertiary)", flexShrink: 0 }}>{MONTHS[currentMonth]} {currentYear}</span>
+          </header>
           <div className="content">{renderPage()}</div>
         </div>
       </div>
       {paymentModal && (
-        <div className="modal-overlay" onClick={() => setPaymentModal(null)}>
+        <div className="modal-overlay" {...overlayDismiss(() => setPaymentModal(null))}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="modal-header"><h2>Record Payment</h2><button className="modal-close" onClick={() => setPaymentModal(null)}><Icon name="x" size={16} /></button></div>
             <div className="modal-body">{(() => {
@@ -1636,7 +2350,7 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
       )}
 
       {receiptData && (
-        <div className="modal-overlay" onClick={() => setReceiptData(null)}>
+        <div className="modal-overlay" {...overlayDismiss(() => setReceiptData(null))}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <div className="modal-header" style={{ paddingBottom: 8 }}>
               <div>
@@ -1724,8 +2438,118 @@ function AppShell({ currentUser, onLogout, onLanguageToggle }) {
         </div>
       )}
 
+      {invoiceReceiptData && (
+        <div className="modal-overlay" {...overlayDismiss(() => setInvoiceReceiptData(null))}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="modal-header" style={{ paddingBottom: 8 }}>
+              <div>
+                <h2 style={{ marginBottom: 2 }}>Invoice</h2>
+                <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>Invoice No. {invoiceReceiptData.invoiceNo}</p>
+              </div>
+              <button className="modal-close" onClick={() => setInvoiceReceiptData(null)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              {/* Success banner — blue for invoice (vs green for payment receipt) */}
+              <div style={{ background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Icon name="check" size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--accent)" }}>Invoice created successfully</div>
+                  <div style={{ fontSize: 11.5, color: "var(--accent)", marginTop: 2 }}>Issued · {invoiceReceiptData.issuedAt}</div>
+                </div>
+              </div>
+
+              {/* Firm letterhead */}
+              <div style={{ textAlign: "center", paddingBottom: 16, borderBottom: "2px solid var(--text)", marginBottom: 16 }}>
+                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3 }}>{FIRM.name}</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 4 }}>{FIRM.address}</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 2 }}>{FIRM.phone} · {FIRM.email}</div>
+              </div>
+
+              {/* INVOICE label + meta row */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 4 }}>Invoice</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)" }}>{invoiceReceiptData.invoiceNo}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 4 }}>Issue Date</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{invoiceReceiptData.issueDate}</div>
+                </div>
+              </div>
+
+              {/* Bill To block */}
+              <div style={{ background: "var(--bg)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 6 }}>Bill To</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{invoiceReceiptData.client.name}</div>
+                {invoiceReceiptData.client.address && <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>{invoiceReceiptData.client.address}</div>}
+                {(invoiceReceiptData.client.contact || invoiceReceiptData.client.phone || invoiceReceiptData.client.email) && (
+                  <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 6 }}>
+                    {invoiceReceiptData.client.contact}
+                    {invoiceReceiptData.client.phone ? ` · ${invoiceReceiptData.client.phone}` : ""}
+                    {invoiceReceiptData.client.email ? ` · ${invoiceReceiptData.client.email}` : ""}
+                  </div>
+                )}
+              </div>
+
+              {/* Line items table */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-tertiary)", marginBottom: 8, padding: "0 4px" }}>Particulars</div>
+                <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px", padding: "10px 14px", background: "var(--bg)", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, color: "var(--text-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                    <span>Description</span>
+                    <span style={{ textAlign: "left" }}>Handled By</span>
+                    <span style={{ textAlign: "right" }}>Amount</span>
+                  </div>
+                  {invoiceReceiptData.items.map((it, idx) => {
+                    const emp = EMPLOYEES.find(e => e.id === it.employeeId);
+                    return (
+                      <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px", padding: "11px 14px", fontSize: 12.5, borderBottom: idx < invoiceReceiptData.items.length - 1 ? "1px solid var(--border-light)" : "none", alignItems: "start", gap: 8 }}>
+                        <span style={{ lineHeight: 1.4 }}>{it.description}</span>
+                        <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{emp ? emp.shortName : "—"}</span>
+                        <span style={{ textAlign: "right", fontWeight: 600 }}>{formatCurrency(it.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Total block */}
+              <div style={{ background: "var(--bg)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", color: "var(--text-secondary)" }}>
+                  <span>Subtotal</span>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{formatCurrency(invoiceReceiptData.amount)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
+                  <span>Tax / VAT</span>
+                  <span style={{ fontWeight: 600, color: "var(--text-tertiary)" }}>—</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, padding: "12px 0 4px", alignItems: "baseline" }}>
+                  <span style={{ fontWeight: 700 }}>Total Due</span>
+                  <span style={{ fontWeight: 700, fontSize: 20, color: "var(--accent)", letterSpacing: -0.4 }}>{formatCurrency(invoiceReceiptData.amount)}</span>
+                </div>
+              </div>
+
+              {/* Footer meta */}
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-tertiary)", padding: "8px 0", marginBottom: 12, borderTop: "1px solid var(--border-light)" }}>
+                <span>Prepared by: <strong style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{invoiceReceiptData.preparedBy}</strong> · {invoiceReceiptData.preparedByRole}</span>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => window.print()}>Print Invoice</button>
+                <button className="btn btn-primary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setInvoiceReceiptData(null)}>Done</button>
+              </div>
+
+              <p style={{ fontSize: 10, color: "var(--text-tertiary)", textAlign: "center", marginTop: 14 }}>This is a computer-generated invoice. Payment instructions will be provided separately.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {clientModal && (
-        <div className="modal-overlay" onClick={() => setClientModal(null)}>
+        <div className="modal-overlay" {...overlayDismiss(() => setClientModal(null))}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="modal-header">
               <h2>{clientModal.mode === "add" ? "Add New Client" : "Edit Client"}</h2>
